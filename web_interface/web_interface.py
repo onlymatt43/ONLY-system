@@ -18,6 +18,7 @@ BUILDER_URL = os.getenv("BUILDER_URL", "http://localhost:5057")
 PUBLISHER_URL = os.getenv("PUBLISHER_URL", "http://localhost:5058")
 SENTINEL_URL = os.getenv("SENTINEL_URL", "http://localhost:5059")
 MONETIZER_URL = os.getenv("MONETIZER_URL", "http://localhost:5060")
+CURATOR_URL = os.getenv("CURATOR_URL", "http://localhost:5061")
 
 app = FastAPI(title="ONLY Web Interface", version="1.0")
 
@@ -65,6 +66,12 @@ async def monetizer_page(request: Request):
 async def analytics_page(request: Request):
     """Page d'analytics"""
     return templates.TemplateResponse("analytics.html", {"request": request})
+
+
+@app.get("/curator", response_class=HTMLResponse)
+async def curator_page(request: Request):
+    """Page de curation des vidéos"""
+    return templates.TemplateResponse("curator.html", {"request": request})
 
 
 # === API Proxy endpoints (pour éviter CORS) ===
@@ -134,6 +141,47 @@ async def get_tokens(limit: int = 50):
     """Récupère la liste des tokens"""
     try:
         r = requests.get(f"{MONETIZER_URL}/tokens?limit={limit}", timeout=10)
+        return r.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/curator/videos")
+async def get_curator_videos(limit: int = 50, offset: int = 0):
+    """Récupère les vidéos du Curator"""
+    try:
+        r = requests.get(f"{CURATOR_URL}/videos?limit={limit}&offset={offset}", timeout=10)
+        return r.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/curator/categories")
+async def get_curator_categories():
+    """Récupère les catégories"""
+    try:
+        r = requests.get(f"{CURATOR_URL}/categories", timeout=10)
+        return r.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/curator/categories")
+async def create_curator_category(request: Request):
+    """Crée une nouvelle catégorie"""
+    data = await request.json()
+    try:
+        r = requests.post(f"{CURATOR_URL}/categories", json=data, timeout=10)
+        return r.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/curator/sync")
+async def sync_curator_videos():
+    """Synchronise les vidéos depuis Bunny"""
+    try:
+        r = requests.post(f"{CURATOR_URL}/sync/bunny", timeout=60)
         return r.json()
     except Exception as e:
         return {"error": str(e)}

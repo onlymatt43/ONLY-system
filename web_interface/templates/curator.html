@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curator - ONLY</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .curator-grid {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .sidebar {
+            background: #1e293b;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            height: fit-content;
+        }
+        
+        .sidebar h3 {
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+        
+        .category-list {
+            list-style: none;
+        }
+        
+        .category-item {
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            background: #0f172a;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .category-item:hover {
+            background: #1e3a5f;
+        }
+        
+        .category-item.active {
+            background: #3b82f6;
+        }
+        
+        .videos-section {
+            background: #1e293b;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+        }
+        
+        .videos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        
+        .video-card {
+            background: #0f172a;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .video-card:hover {
+            transform: translateY(-4px);
+        }
+        
+        .video-thumbnail {
+            width: 100%;
+            height: 160px;
+            background: #334155;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            font-size: 3rem;
+        }
+        
+        .video-info {
+            padding: 1rem;
+        }
+        
+        .video-title {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .video-meta {
+            font-size: 0.875rem;
+            color: #94a3b8;
+        }
+        
+        .video-duration {
+            display: inline-block;
+            background: #334155;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+        }
+        
+        .actions-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .btn-sync {
+            background: #10b981;
+        }
+        
+        .btn-sync:hover {
+            background: #059669;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .stat-item {
+            background: #0f172a;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            flex: 1;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #10b981;
+        }
+        
+        .stat-label {
+            color: #94a3b8;
+            font-size: 0.875rem;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #64748b;
+            padding: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h1>🎬 ONLY</h1>
+        </div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/upload">Upload</a>
+            <a href="/jobs">Jobs</a>
+            <a href="/curator" class="active">Curator</a>
+            <a href="/monetizer">Monetizer</a>
+            <a href="/analytics">Analytics</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2>📚 Curator - Gestion des Vidéos</h2>
+        
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-value" id="total-videos">-</div>
+                <div class="stat-label">Vidéos Totales</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="total-categories">-</div>
+                <div class="stat-label">Catégories</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="total-duration">-</div>
+                <div class="stat-label">Durée Totale</div>
+            </div>
+        </div>
+        
+        <div class="actions-bar">
+            <button onclick="syncVideos()" class="btn btn-sync">🔄 Sync Bunny Stream</button>
+            <button onclick="showCreateCategory()" class="btn btn-primary">➕ Nouvelle Catégorie</button>
+        </div>
+        
+        <div class="curator-grid">
+            <div class="sidebar">
+                <h3>Catégories</h3>
+                <ul class="category-list" id="categories-list">
+                    <li class="category-item active" onclick="filterByCategory(null)">
+                        📁 Toutes les vidéos
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="videos-section">
+                <h3>Vidéos</h3>
+                <div class="videos-grid" id="videos-grid">
+                    <div class="loading">Chargement des vidéos...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allVideos = [];
+        let currentFilter = null;
+        
+        async function loadVideos() {
+            try {
+                const response = await fetch('/api/curator/videos?limit=200');
+                const videos = await response.json();
+                
+                if (videos.error) {
+                    throw new Error(videos.error);
+                }
+                
+                allVideos = videos;
+                updateStats();
+                displayVideos(videos);
+            } catch (error) {
+                console.error('Erreur chargement vidéos:', error);
+                document.getElementById('videos-grid').innerHTML = `
+                    <p style="color: #ef4444;">Erreur: ${error.message}</p>
+                `;
+            }
+        }
+        
+        async function loadCategories() {
+            try {
+                const response = await fetch('/api/curator/categories');
+                const categories = await response.json();
+                
+                if (categories.error) {
+                    throw new Error(categories.error);
+                }
+                
+                const list = document.getElementById('categories-list');
+                categories.forEach(cat => {
+                    const li = document.createElement('li');
+                    li.className = 'category-item';
+                    li.innerHTML = `${cat.icon || '📁'} ${cat.name}`;
+                    li.onclick = () => filterByCategory(cat.id);
+                    list.appendChild(li);
+                });
+                
+                document.getElementById('total-categories').textContent = categories.length;
+            } catch (error) {
+                console.error('Erreur chargement catégories:', error);
+            }
+        }
+        
+        function updateStats() {
+            document.getElementById('total-videos').textContent = allVideos.length;
+            
+            const totalDuration = allVideos.reduce((sum, v) => sum + (v.duration || 0), 0);
+            const hours = Math.floor(totalDuration / 3600);
+            const minutes = Math.floor((totalDuration % 3600) / 60);
+            document.getElementById('total-duration').textContent = `${hours}h ${minutes}m`;
+        }
+        
+        function displayVideos(videos) {
+            const grid = document.getElementById('videos-grid');
+            
+            if (videos.length === 0) {
+                grid.innerHTML = '<p style="color: #64748b;">Aucune vidéo trouvée</p>';
+                return;
+            }
+            
+            grid.innerHTML = videos.map(video => {
+                const duration = formatDuration(video.duration || 0);
+                const title = video.title || 'Sans titre';
+                
+                return `
+                    <div class="video-card" onclick="openVideo('${video.video_url}')">
+                        <div class="video-thumbnail">🎬</div>
+                        <div class="video-info">
+                            <div class="video-title">${title}</div>
+                            <div class="video-meta">
+                                <span class="video-duration">${duration}</span>
+                                <span style="margin-left: 0.5rem; color: #64748b;">${video.views || 0} vues</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function formatDuration(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            
+            if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        }
+        
+        function filterByCategory(categoryId) {
+            currentFilter = categoryId;
+            
+            // Update active state
+            document.querySelectorAll('.category-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Filter videos (TODO: implement server-side filtering)
+            displayVideos(allVideos);
+        }
+        
+        async function syncVideos() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = '⏳ Synchronisation...';
+            
+            try {
+                const response = await fetch('/api/curator/sync', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.ok) {
+                    alert(`✅ ${result.synced} vidéos synchronisées !`);
+                    await loadVideos();
+                } else {
+                    throw new Error(result.error || 'Erreur inconnue');
+                }
+            } catch (error) {
+                alert(`❌ Erreur: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔄 Sync Bunny Stream';
+            }
+        }
+        
+        function showCreateCategory() {
+            const name = prompt('Nom de la catégorie:');
+            if (!name) return;
+            
+            const icon = prompt('Emoji (optionnel):', '📁');
+            const color = prompt('Couleur (hex):', '#3b82f6');
+            
+            createCategory(name, icon, color);
+        }
+        
+        async function createCategory(name, icon, color) {
+            try {
+                const response = await fetch('/api/curator/categories', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, icon, color })
+                });
+                
+                const result = await response.json();
+                
+                if (result.ok) {
+                    alert('✅ Catégorie créée !');
+                    location.reload();
+                } else {
+                    throw new Error(result.error || 'Erreur inconnue');
+                }
+            } catch (error) {
+                alert(`❌ Erreur: ${error.message}`);
+            }
+        }
+        
+        function openVideo(url) {
+            window.open(url, '_blank');
+        }
+        
+        // Load on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadVideos();
+            loadCategories();
+        });
+    </script>
+</body>
+</html>
