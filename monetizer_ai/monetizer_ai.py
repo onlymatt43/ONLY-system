@@ -100,7 +100,7 @@ def build_unlock_url(token: str) -> str:
     return f"{BASE_URL}/u/{token}"
 
 # ──────────────────────────────── Core ops
-def mint_one(title:str, value_cents:int, duration_min:int, vendor_url:str, meta:dict) -> Dict[str,Any]:
+def mint_one(title:str, value_cents:int, duration_min:int, vendor_url:Optional[str], meta:dict) -> Dict[str,Any]:
     code = pretty_code(CODE_PREFIX)
     tk = make_token(code, duration_min)
     token = tk["token"]
