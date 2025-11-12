@@ -26,7 +26,9 @@ app = FastAPI(title="Monetizer AI", version="1.0")
 def db():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    return conn
+    cursor = conn.cursor()
+    cursor.connection = conn  # Garder référence pour commit/rollback
+    return cursor
 
 def init_db():
     with db() as c:
@@ -106,15 +108,17 @@ def mint_one(title:str, value_cents:int, duration_min:int, vendor_url:Optional[s
     token = tk["token"]
     token_hash = sign(token)  # double signature (anti-leak rapide)
     unlock_url = build_unlock_url(token)
-    with db() as c:
-        c.execute("""INSERT INTO tokens(code_visible, token, token_hash, title, value_cents, duration_min,
-                     vendor_url, unlock_url, status, created_at, meta)
-                     VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
-                  (code, token, token_hash, title, value_cents, duration_min,
-                   vendor_url, unlock_url, "fresh", fmt(now_utc()), json.dumps(meta or {}, ensure_ascii=False)))
-        tid = c.lastrowid
-        row = c.execute("SELECT * FROM tokens WHERE id = ?", (tid,)).fetchone()
-        return dict(row)
+    cursor = db()
+    cursor.execute("""INSERT INTO tokens(code_visible, token, token_hash, title, value_cents, duration_min,
+                 vendor_url, unlock_url, status, created_at, meta)
+                 VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+              (code, token, token_hash, title, value_cents, duration_min,
+               vendor_url, unlock_url, "fresh", fmt(now_utc()), json.dumps(meta or {}, ensure_ascii=False)))
+    tid = cursor.lastrowid
+    row = cursor.execute("SELECT * FROM tokens WHERE id = ?", (tid,)).fetchone()
+    cursor.connection.commit()
+    cursor.connection.close()
+    return dict(row)
 
 def set_status(tid:int, status:str, expires_at:Optional[datetime]=None):
     with db() as c:
