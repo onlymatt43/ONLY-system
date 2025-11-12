@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel 2.0 - Surveillance Système</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0e27;
+            color: #e2e8f0;
+            padding: 2rem;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .subtitle {
+            color: #64748b;
+            margin-bottom: 2rem;
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .metric-card {
+            background: #1e293b;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            border: 1px solid #334155;
+        }
+        
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #10b981;
+        }
+        
+        .metric-label {
+            color: #94a3b8;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+        
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .service-card {
+            background: #1e293b;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            border: 2px solid #334155;
+        }
+        
+        .service-card.healthy {
+            border-color: #10b981;
+        }
+        
+        .service-card.warning {
+            border-color: #f59e0b;
+        }
+        
+        .service-card.degraded {
+            border-color: #f97316;
+        }
+        
+        .service-card.down {
+            border-color: #ef4444;
+            background: #1e1b1b;
+        }
+        
+        .service-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .service-name {
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
+        
+        .service-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .status-healthy {
+            background: #10b981;
+            color: white;
+        }
+        
+        .status-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .status-degraded {
+            background: #f97316;
+            color: white;
+        }
+        
+        .status-down {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .service-details {
+            font-size: 0.875rem;
+            color: #94a3b8;
+        }
+        
+        .service-details div {
+            margin: 0.5rem 0;
+        }
+        
+        .alerts-section {
+            background: #1e293b;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            border: 2px solid #ef4444;
+        }
+        
+        .alert-item {
+            background: #1e1b1b;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border-left: 4px solid #ef4444;
+            margin: 1rem 0;
+        }
+        
+        .alert-item.critical {
+            border-left-color: #ef4444;
+        }
+        
+        .alert-item.high {
+            border-left-color: #f97316;
+        }
+        
+        .alert-item.medium {
+            border-left-color: #f59e0b;
+        }
+        
+        .alert-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .alert-title {
+            font-weight: bold;
+            color: #ef4444;
+        }
+        
+        .alert-time {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+        
+        .alert-recommendation {
+            background: #0f172a;
+            padding: 1rem;
+            border-radius: 0.25rem;
+            margin-top: 0.75rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+            border: 1px solid #334155;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #64748b;
+            padding: 2rem;
+        }
+        
+        .refresh-info {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.875rem;
+            margin-top: 1rem;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #334155;
+            border-radius: 2px;
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #10b981;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <h1>🛡️ Sentinel 2.0</h1>
+    <p class="subtitle">Surveillance Intelligente du Système ONLY</p>
+    
+    <div class="metrics">
+        <div class="metric-card">
+            <div class="metric-value" id="total-checks">-</div>
+            <div class="metric-label">Total Vérifications</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value" id="total-incidents" style="color: #ef4444;">-</div>
+            <div class="metric-label">Incidents Totaux</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value" id="auto-fixes" style="color: #10b981;">-</div>
+            <div class="metric-label">Réparations Auto</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value" id="uptime">-</div>
+            <div class="metric-label">Uptime Système</div>
+        </div>
+    </div>
+    
+    <h2 style="margin-bottom: 1rem;">📡 État des Services</h2>
+    <div class="services-grid" id="services-grid">
+        <div class="loading">Chargement...</div>
+    </div>
+    
+    <div id="alerts-container"></div>
+    
+    <div class="refresh-info">
+        Auto-refresh toutes les {{ check_interval }} secondes
+        <div class="progress-bar">
+            <div class="progress-fill" id="refresh-progress"></div>
+        </div>
+    </div>
+    
+    <script>
+        const CHECK_INTERVAL = {{ check_interval }} * 1000;
+        let lastUpdate = Date.now();
+        
+        async function loadStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                // Update metrics
+                document.getElementById('total-checks').textContent = 
+                    data.metrics.total_checks.toLocaleString();
+                document.getElementById('total-incidents').textContent = 
+                    data.metrics.total_incidents;
+                document.getElementById('auto-fixes').textContent = 
+                    data.metrics.auto_fixes;
+                
+                // Calculate system uptime
+                const uptimeStart = new Date(data.metrics.uptime_start);
+                const uptimeMs = Date.now() - uptimeStart;
+                const uptimeHours = Math.floor(uptimeMs / 3600000);
+                document.getElementById('uptime').textContent = 
+                    uptimeHours + 'h';
+                
+                // Update services
+                const servicesGrid = document.getElementById('services-grid');
+                servicesGrid.innerHTML = '';
+                
+                for (const [name, service] of Object.entries(data.services)) {
+                    const card = document.createElement('div');
+                    card.className = `service-card ${service.status}`;
+                    
+                    const lastCheck = service.last_check ? 
+                        new Date(service.last_check).toLocaleTimeString() : '-';
+                    const responseTime = service.response_time_ms !== null ? 
+                        `${service.response_time_ms}ms` : 'N/A';
+                    const uptime = service.uptime_24h !== undefined ?
+                        `${service.uptime_24h.toFixed(1)}%` : '-';
+                    
+                    card.innerHTML = `
+                        <div class="service-header">
+                            <div class="service-name">${name}</div>
+                            <div class="service-status status-${service.status}">${service.status}</div>
+                        </div>
+                        <div class="service-details">
+                            <div>⏱️ Response: ${responseTime}</div>
+                            <div>📊 Uptime 24h: ${uptime}</div>
+                            <div>🕐 Last check: ${lastCheck}</div>
+                        </div>
+                    `;
+                    
+                    servicesGrid.appendChild(card);
+                }
+                
+                // Update alerts
+                const alertsContainer = document.getElementById('alerts-container');
+                
+                if (data.alerts && data.alerts.length > 0) {
+                    alertsContainer.innerHTML = `
+                        <h2 style="margin-top: 2rem; margin-bottom: 1rem; color: #ef4444;">
+                            🚨 Alertes Actives (${data.alerts.length})
+                        </h2>
+                        <div class="alerts-section">
+                            ${data.alerts.map(alert => `
+                                <div class="alert-item ${alert.severity}">
+                                    <div class="alert-header">
+                                        <div class="alert-title">${alert.issue}</div>
+                                        <div class="alert-time">${new Date(alert.timestamp).toLocaleString()}</div>
+                                    </div>
+                                    <div style="color: #94a3b8; font-size: 0.875rem;">
+                                        Service: ${alert.service} | Sévérité: ${alert.severity}
+                                    </div>
+                                    ${alert.recommendation ? `
+                                        <div class="alert-recommendation">${alert.recommendation}</div>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                } else {
+                    alertsContainer.innerHTML = `
+                        <div style="text-align: center; color: #10b981; margin-top: 2rem; padding: 2rem; background: #1e293b; border-radius: 0.5rem;">
+                            ✅ Aucune alerte - Tous les systèmes fonctionnent normalement
+                        </div>
+                    `;
+                }
+                
+                lastUpdate = Date.now();
+            } catch (error) {
+                console.error('Erreur chargement status:', error);
+            }
+        }
+        
+        // Progress bar animation
+        function updateProgressBar() {
+            const elapsed = Date.now() - lastUpdate;
+            const progress = Math.min((elapsed / CHECK_INTERVAL) * 100, 100);
+            document.getElementById('refresh-progress').style.width = progress + '%';
+        }
+        
+        // Initial load
+        loadStatus();
+        
+        // Auto-refresh
+        setInterval(loadStatus, CHECK_INTERVAL);
+        setInterval(updateProgressBar, 100);
+    </script>
+</body>
+</html>
