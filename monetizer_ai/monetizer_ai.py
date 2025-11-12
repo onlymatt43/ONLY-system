@@ -13,6 +13,8 @@ load_dotenv()
 
 PORT            = int(os.getenv("PORT","5060"))
 DB_PATH         = os.getenv("DB_PATH","./monetizer.db")
+# Créer le dossier parent si nécessaire (pour Render sans Disk)
+os.makedirs(os.path.dirname(DB_PATH) if os.path.dirname(DB_PATH) else ".", exist_ok=True)
 BASE_URL        = os.getenv("BASE_URL","http://localhost:5060").rstrip("/")
 SECRET_KEY      = os.getenv("SECRET_KEY","change-me-super-long-secret")
 CODE_PREFIX     = os.getenv("CODE_PREFIX","OM43")

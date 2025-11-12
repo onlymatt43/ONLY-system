@@ -18,7 +18,9 @@ BUILDER_URL = os.getenv("BUILDER_URL", "http://localhost:5057/build")
 PUBLISHER_URL = os.getenv("PUBLISHER_URL", "http://localhost:5058/notify")
 WORKER_INTERVAL = int(os.getenv("WORKER_INTERVAL_SEC", "2"))
 
-DB_PATH = "./gateway.db"
+DB_PATH = os.getenv("DB_PATH", "./gateway.db")
+# Créer le dossier parent si nécessaire (pour Render sans Disk)
+os.makedirs(os.path.dirname(DB_PATH) if os.path.dirname(DB_PATH) else ".", exist_ok=True)
 
 app = FastAPI(title="OM43 Gateway", version="1.0")
 
