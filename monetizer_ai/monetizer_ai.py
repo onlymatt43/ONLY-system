@@ -24,32 +24,34 @@ app = FastAPI(title="Monetizer AI", version="1.0")
 
 # ───────────────────────────────── DB
 def db():
+    """Return a database connection"""
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.connection = conn  # Garder référence pour commit/rollback
-    return cursor
+    return conn
 
 def init_db():
-    with db() as c:
-        c.execute("""
-        CREATE TABLE IF NOT EXISTS tokens(
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          code_visible TEXT UNIQUE,
-          token TEXT UNIQUE,          -- compact signed token
-          token_hash TEXT,            -- HMAC digest base64
-          title TEXT,
-          value_cents INTEGER,
-          duration_min INTEGER,
-          vendor_url TEXT,
-          unlock_url TEXT,            -- URL d'unlock (vers WP)
-          status TEXT,                -- fresh | activated | expired | revoked
-          created_at TEXT,
-          activated_at TEXT,
-          expires_at TEXT,
-          meta TEXT
-        )""")
-        c.execute("CREATE INDEX IF NOT EXISTS idx_tokens_status ON tokens(status)")
+    conn = db()
+    c = conn.cursor()
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS tokens(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code_visible TEXT UNIQUE,
+      token TEXT UNIQUE,          -- compact signed token
+      token_hash TEXT,            -- HMAC digest base64
+      title TEXT,
+      value_cents INTEGER,
+      duration_min INTEGER,
+      vendor_url TEXT,
+      unlock_url TEXT,            -- URL d'unlock (vers WP)
+      status TEXT,                -- fresh | activated | expired | revoked
+      created_at TEXT,
+      activated_at TEXT,
+      expires_at TEXT,
+      meta TEXT
+    )""")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_tokens_status ON tokens(status)")
+    conn.commit()
+    conn.close()
     print("[DB] ready:", DB_PATH)
 
 def now_utc():
@@ -108,22 +110,26 @@ def mint_one(title:str, value_cents:int, duration_min:int, vendor_url:Optional[s
     token = tk["token"]
     token_hash = sign(token)  # double signature (anti-leak rapide)
     unlock_url = build_unlock_url(token)
-    cursor = db()
-    cursor.execute("""INSERT INTO tokens(code_visible, token, token_hash, title, value_cents, duration_min,
+    conn = db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO tokens(code_visible, token, token_hash, title, value_cents, duration_min,
                  vendor_url, unlock_url, status, created_at, meta)
                  VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
               (code, token, token_hash, title, value_cents, duration_min,
                vendor_url, unlock_url, "fresh", fmt(now_utc()), json.dumps(meta or {}, ensure_ascii=False)))
-    tid = cursor.lastrowid
-    row = cursor.execute("SELECT * FROM tokens WHERE id = ?", (tid,)).fetchone()
-    cursor.connection.commit()
-    cursor.connection.close()
+    tid = c.lastrowid
+    row = c.execute("SELECT * FROM tokens WHERE id = ?", (tid,)).fetchone()
+    conn.commit()
+    conn.close()
     return dict(row)
 
 def set_status(tid:int, status:str, expires_at:Optional[datetime]=None):
-    with db() as c:
-        c.execute("UPDATE tokens SET status=?, expires_at=?, activated_at=COALESCE(activated_at, ?) WHERE id=?",
-                  (status, fmt(expires_at), fmt(now_utc()), tid))
+    conn = db()
+    c = conn.cursor()
+    c.execute("UPDATE tokens SET status=?, expires_at=?, activated_at=COALESCE(activated_at, ?) WHERE id=?",
+              (status, fmt(expires_at), fmt(now_utc()), tid))
+    conn.commit()
+    conn.close()
 
 def activate_or_refresh(row: sqlite3.Row) -> Dict[str,Any]:
     """Active un token fresh → activated; si activated, vérifie expiry; si expired/revoked -> KO."""
@@ -137,15 +143,21 @@ def activate_or_refresh(row: sqlite3.Row) -> Dict[str,Any]:
     exp_dt = datetime.fromtimestamp(p["exp_ts"], tz=timezone.utc)
     if exp_dt < now_utc():
         # expire en DB
-        with db() as c:
-            c.execute("UPDATE tokens SET status=?, expires_at=? WHERE id=?",
-                      ("expired", fmt(exp_dt), row["id"]))
+        conn = db()
+        c = conn.cursor()
+        c.execute("UPDATE tokens SET status=?, expires_at=? WHERE id=?",
+                  ("expired", fmt(exp_dt), row["id"]))
+        conn.commit()
+        conn.close()
         return {"ok":False, "reason":"expired", "expires_at": fmt(exp_dt)}
     # Passe en activated si fresh
     if status == "fresh":
-        with db() as c:
-            c.execute("UPDATE tokens SET status=?, activated_at=?, expires_at=? WHERE id=?",
-                      ("activated", fmt(now_utc()), fmt(exp_dt), row["id"]))
+        conn = db()
+        c = conn.cursor()
+        c.execute("UPDATE tokens SET status=?, activated_at=?, expires_at=? WHERE id=?",
+                  ("activated", fmt(now_utc()), fmt(exp_dt), row["id"]))
+        conn.commit()
+        conn.close()
     return {"ok":True, "expires_at": fmt(exp_dt)}
 
 # ──────────────────────────────── QR helper
@@ -224,8 +236,10 @@ async def mint_batch(req: Request):
 # Export CSV (id, code, token, unlock_url, vendor_url, expiry)
 @app.get("/export/csv")
 def export_csv():
-    with db() as c:
-        rows = c.execute("SELECT id,code_visible,token,vendor_url,unlock_url,duration_min,status,created_at,expires_at FROM tokens ORDER BY id DESC").fetchall()
+    conn = db()
+    c = conn.cursor()
+    rows = c.execute("SELECT id,code_visible,token,vendor_url,unlock_url,duration_min,status,created_at,expires_at FROM tokens ORDER BY id DESC").fetchall()
+    conn.close()
     def gen():
         w = io.StringIO()
         cw = csv.writer(w)
@@ -254,8 +268,10 @@ def verify(token: str):
     parsed = parse_token(token)
     if not parsed:
         return JSONResponse({"ok":False, "reason":"invalid_token"}, status_code=400)
-    with db() as c:
-        row = c.execute("SELECT * FROM tokens WHERE token = ?", (token,)).fetchone()
+    conn = db()
+    c = conn.cursor()
+    row = c.execute("SELECT * FROM tokens WHERE token = ?", (token,)).fetchone()
+    conn.close()
     if not row:
         return JSONResponse({"ok":False, "reason":"unknown"}, status_code=404)
 
@@ -281,24 +297,33 @@ async def revoke(req: Request):
     j = await req.json()
     token = j.get("token")
     if not token: return {"ok":False, "error":"missing token"}
-    with db() as c:
-        r = c.execute("SELECT * FROM tokens WHERE token=?", (token,)).fetchone()
-        if not r: return {"ok":False, "error":"unknown"}
-        c.execute("UPDATE tokens SET status=? WHERE token=?", ("revoked", token))
+    conn = db()
+    c = conn.cursor()
+    r = c.execute("SELECT * FROM tokens WHERE token=?", (token,)).fetchone()
+    if not r:
+        conn.close()
+        return {"ok":False, "error":"unknown"}
+    c.execute("UPDATE tokens SET status=? WHERE token=?", ("revoked", token))
+    conn.commit()
+    conn.close()
     return {"ok":True, "status":"revoked"}
 
 # Mini liste (debug)
 @app.get("/tokens")
 def list_tokens(limit:int=50):
-    with db() as c:
-        rows = c.execute("SELECT id,code_visible,token,status,expires_at,unlock_url FROM tokens ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
-        return [dict(r) for r in rows]
+    conn = db()
+    c = conn.cursor()
+    rows = c.execute("SELECT id,code_visible,token,status,expires_at,unlock_url FROM tokens ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 # Page HTML ultra simple (optionnel)
 @app.get("/info/{code}", response_class=HTMLResponse)
 def info_page(code:str):
-    with db() as c:
-        r = c.execute("SELECT * FROM tokens WHERE code_visible=?", (code,)).fetchone()
+    conn = db()
+    c = conn.cursor()
+    r = c.execute("SELECT * FROM tokens WHERE code_visible=?", (code,)).fetchone()
+    conn.close()
     if not r:
         return HTMLResponse("<h1>Code inconnu</h1>", status_code=404)
     return HTMLResponse(f"""
