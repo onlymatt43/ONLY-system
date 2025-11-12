@@ -1,0 +1,81 @@
+# Logs
+logs/
+*.log
+*.pid
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+gateway.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# Environment variables
+.env
+*.env
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# YouTube credentials
+yt_token.json
+client_secret.json
+
+# Test files
+test_videos/
+videos/
+temp/
+
+# ONLY specific
+ONLY.rtfd/
+exports/
+qrcodes/
+monetizer.db
+sentiment.db
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# tmux
+.tmux-*

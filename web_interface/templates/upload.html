@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload - ONLY</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h1>🎬 ONLY</h1>
+        </div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/upload" class="active">Upload</a>
+            <a href="/jobs">Jobs</a>
+            <a href="/monetizer">Monetizer</a>
+            <a href="/analytics">Analytics</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2>📤 Upload une vidéo</h2>
+        
+        <div class="upload-section">
+            <div class="upload-form">
+                <label for="video-url">URL de la vidéo</label>
+                <input type="text" id="video-url" placeholder="https://cdn.example.com/video.mp4" />
+                
+                <label for="video-title">Titre (optionnel)</label>
+                <input type="text" id="video-title" placeholder="Laisser vide pour auto-génération" />
+                
+                <button onclick="triggerUpload()" class="btn btn-primary">🚀 Traiter la vidéo</button>
+            </div>
+
+            <div id="upload-status" class="upload-status hidden">
+                <h3>Status</h3>
+                <div id="status-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/upload.js"></script>
+</body>
+</html>

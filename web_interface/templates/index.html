@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONLY - Content Management System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h1>🎬 ONLY</h1>
+            <span class="tagline">Content Management System</span>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="active">Dashboard</a>
+            <a href="/upload">Upload</a>
+            <a href="/jobs">Jobs</a>
+            <a href="/monetizer">Monetizer</a>
+            <a href="/analytics">Analytics</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="hero">
+            <h2>Bienvenue sur ONLY</h2>
+            <p>Système de gestion de contenu automatisé et modulaire</p>
+        </div>
+
+        <!-- Status des services -->
+        <section class="services-status">
+            <h3>📡 État des Services</h3>
+            <div id="services-grid" class="grid">
+                <div class="service-card loading">
+                    <div class="service-icon">🚦</div>
+                    <h4>Gateway</h4>
+                    <span class="status">Chargement...</span>
+                </div>
+                <div class="service-card loading">
+                    <div class="service-icon">📹</div>
+                    <h4>Curator</h4>
+                    <span class="status">Chargement...</span>
+                </div>
+                <div class="service-card loading">
+                    <div class="service-icon">🧠</div>
+                    <h4>Narrator AI</h4>
+                    <span class="status">Chargement...</span>
+                </div>
+                <div class="service-card loading">
+                    <div class="service-icon">📦</div>
+                    <h4>Builder</h4>
+                    <span class="status">Chargement...</span>
+                </div>
+                <div class="service-card loading">
+                    <div class="service-icon">📣</div>
+                    <h4>Publisher</h4>
+                    <span class="status">Chargement...</span>
+                </div>
+                <div class="service-card loading">
+                    <div class="service-icon">💰</div>
+                    <h4>Monetizer</h4>
+                    <span class="status">Chargement...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Jobs récents -->
+        <section class="recent-jobs">
+            <h3>📋 Jobs Récents</h3>
+            <div id="jobs-list" class="jobs-container">
+                <p class="loading">Chargement des jobs...</p>
+            </div>
+            <a href="/jobs" class="btn btn-secondary">Voir tous les jobs</a>
+        </section>
+
+        <!-- Actions rapides -->
+        <section class="quick-actions">
+            <h3>⚡ Actions Rapides</h3>
+            <div class="actions-grid">
+                <a href="/upload" class="action-card">
+                    <div class="action-icon">📤</div>
+                    <h4>Uploader une vidéo</h4>
+                    <p>Ajouter un nouveau contenu</p>
+                </a>
+                <a href="/monetizer" class="action-card">
+                    <div class="action-icon">🎫</div>
+                    <h4>Créer un token</h4>
+                    <p>Générer un code d'accès</p>
+                </a>
+                <a href="/analytics" class="action-card">
+                    <div class="action-icon">📊</div>
+                    <h4>Voir les stats</h4>
+                    <p>Analyser les performances</p>
+                </a>
+            </div>
+        </section>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

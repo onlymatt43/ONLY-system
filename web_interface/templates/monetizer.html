@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monetizer - ONLY</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h1>🎬 ONLY</h1>
+        </div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/upload">Upload</a>
+            <a href="/jobs">Jobs</a>
+            <a href="/monetizer" class="active">Monetizer</a>
+            <a href="/analytics">Analytics</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2>💰 Gestion des Tokens</h2>
+        
+        <div class="monetizer-section">
+            <div class="mint-form">
+                <h3>Créer un nouveau token</h3>
+                
+                <label for="token-title">Titre</label>
+                <input type="text" id="token-title" placeholder="ONLY ACCESS — Episode 01" />
+                
+                <label for="token-duration">Durée (minutes)</label>
+                <input type="number" id="token-duration" value="1440" />
+                
+                <label for="token-value">Valeur (cents)</label>
+                <input type="number" id="token-value" value="1000" placeholder="1000 = 10.00$" />
+                
+                <button onclick="mintToken()" class="btn btn-primary">🎫 Créer le token</button>
+            </div>
+
+            <div id="mint-result" class="mint-result hidden"></div>
+        </div>
+
+        <div class="tokens-list">
+            <h3>Tokens existants</h3>
+            <div id="tokens-grid" class="tokens-grid">
+                <p>Chargement...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/monetizer.js"></script>
+</body>
+</html>

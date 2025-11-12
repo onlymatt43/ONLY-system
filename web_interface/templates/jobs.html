@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jobs - ONLY</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h1>🎬 ONLY</h1>
+        </div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/upload">Upload</a>
+            <a href="/jobs" class="active">Jobs</a>
+            <a href="/monetizer">Monetizer</a>
+            <a href="/analytics">Analytics</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h2>📋 Gestion des Jobs</h2>
+            <button onclick="refreshJobs()" class="btn btn-secondary">🔄 Rafraîchir</button>
+        </div>
+        
+        <div class="jobs-table">
+            <table id="jobs-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Fichier</th>
+                        <th>Status</th>
+                        <th>Lien</th>
+                        <th>Créé</th>
+                        <th>Mis à jour</th>
+                    </tr>
+                </thead>
+                <tbody id="jobs-tbody">
+                    <tr><td colspan="6">Chargement...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="/static/js/jobs.js"></script>
+</body>
+</html>

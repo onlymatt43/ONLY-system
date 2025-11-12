@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Sentinel Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    {% if refresh %}<meta http-equiv="refresh" content="{{ refresh }}">{% endif %}
+    <style>
+        :root {
+            --bg: #0b0b0b;
+            --card: #151515;
+            --text: #fff;
+            --muted: #cfcfcf22;
+            --ok: #1bbf72;
+            --warn: #ffb703;
+            --err: #ef476f;
+        }
+        
+        html, body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            margin: 0;
+        }
+        
+        .wrap {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 16px;
+        }
+        
+        h1 {
+            font-weight: 700;
+            letter-spacing: .3px;
+            margin: 0 0 10px;
+        }
+        
+        .row {
+            display: grid;
+            gap: 16px;
+        }
+        
+        .grid-2 {
+            grid-template-columns: 1fr 1fr;
+        }
+        
+        .card {
+            background: var(--card);
+            border: 1px solid var(--muted);
+            border-radius: 16px;
+            padding: 16px;
+        }
+        
+        .small {
+            opacity: .8;
+            font-size: .9em;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 10px 8px;
+            border-bottom: 1px solid var(--muted);
+            text-align: left;
+            font-size: .95em;
+        }
+        
+        th {
+            opacity: .8;
+            font-weight: 600;
+        }
+        
+        .pill {
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: .82em;
+            display: inline-block;
+        }
+        
+        .s-ok {
+            background: rgba(27, 191, 114, .15);
+            color: #9af0c7;
+            border: 1px solid rgba(27, 191, 114, .4);
+        }
+        
+        .s-warn {
+            background: rgba(255, 183, 3, .12);
+            color: #ffd17a;
+            border: 1px solid rgba(255, 183, 3, .4);
+        }
+        
+        .s-err {
+            background: rgba(239, 71, 111, .14);
+            color: #ff9bb0;
+            border: 1px solid rgba(239, 71, 111, .4);
+        }
+        
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: .9em;
+        }
+        
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+        
+        a {
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <h1>🎯 Sentinel Dashboard</h1>
+        <div class="small">
+            Auto-refresh: {{ refresh }}s · DB: 
+            {% if has_db %}
+                <code>{{ db_path }}</code>
+            {% else %}
+                <span class="pill s-err">No DB</span>
+            {% endif %}
+        </div>
+        
+        <br>
+        
+        <div class="row grid-2">
+            <div class="card">
+                <h3>Services</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Status</th>
+                            <th>Info</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for name, s in services.items() %}
+                        {% set ok = s.ok if s.ok is defined else s['ok'] %}
+                        <tr>
+                            <td>{{ name }}</td>
+                            <td>
+                                {% if ok %}
+                                <span class="pill s-ok">ONLINE</span>
+                                {% else %}
+                                <span class="pill s-err">OFFLINE</span>
+                                {% endif %}
+                            </td>
+                            <td class="mono">
+                                {% if s.code is defined %}
+                                    HTTP {{ s.code }}
+                                {% elif s.status is defined %}
+                                    {{ s.status }}
+                                {% elif s.error is defined %}
+                                    {{ s.error }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="card">
+                <h3>Jobs (latest)</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>File</th>
+                            <th>Status</th>
+                            <th>Post</th>
+                            <th>Updated</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for j in jobs %}
+                        <tr>
+                            <td>{{ j.id }}</td>
+                            <td class="mono">{{ j.file }}</td>
+                            <td>
+                                {% if j.status == 'done' %}
+                                <span class="pill s-ok">done</span>
+                                {% elif j.status == 'running' %}
+                                <span class="pill s-warn">running</span>
+                                {% elif j.status == 'queued' %}
+                                <span class="pill s-warn">queued</span>
+                                {% else %}
+                                <span class="pill s-err">{{ j.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if j.link %}
+                                <a href="{{ j.link }}" target="_blank" rel="noopener">open</a>
+                                {% else %}
+                                —
+                                {% endif %}
+                            </td>
+                            <td class="mono">{{ j.updated_at }}</td>
+                        </tr>
+                        {% endfor %}
+                        
+                        {% if not jobs %}
+                        <tr>
+                            <td colspan="5" class="small">No jobs yet.</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <br>
+        
+        <div class="card">
+            <h3>Raw API</h3>
+            <div class="small">
+                GET <code>/api/services</code> · 
+                GET <code>/api/jobs?limit=100</code> · 
+                GET <code>/health</code>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
