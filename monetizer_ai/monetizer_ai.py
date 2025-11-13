@@ -270,7 +270,8 @@ def verify(token: str):
         return JSONResponse({"ok":False, "reason":"invalid_token"}, status_code=400)
     conn = db()
     c = conn.cursor()
-    row = c.execute("SELECT * FROM tokens WHERE token = ?", (token,)).fetchone()
+    # Try to find by token (long hash) OR by code (short readable)
+    row = c.execute("SELECT * FROM tokens WHERE token = ? OR code = ?", (token, token)).fetchone()
     conn.close()
     if not row:
         return JSONResponse({"ok":False, "reason":"unknown"}, status_code=404)
