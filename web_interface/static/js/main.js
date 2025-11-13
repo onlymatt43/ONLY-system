@@ -41,7 +41,14 @@ async function loadRecentJobs() {
         
         const jobsList = document.getElementById('jobs-list');
         
-        if (!jobs || jobs.length === 0) {
+        // Ensure jobs is an array
+        if (!Array.isArray(jobs)) {
+            console.warn('Jobs response is not an array:', jobs);
+            jobsList.innerHTML = '<p class="loading">Aucun job pour le moment</p>';
+            return;
+        }
+        
+        if (jobs.length === 0) {
             jobsList.innerHTML = '<p class="loading">Aucun job pour le moment</p>';
             return;
         }

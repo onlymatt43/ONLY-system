@@ -109,9 +109,19 @@ async def get_jobs(limit: int = 50):
     """Récupère la liste des jobs depuis le Gateway"""
     try:
         r = requests.get(f"{GATEWAY_URL}/jobs?limit={limit}", timeout=10)
-        return r.json()
+        r.raise_for_status()
+        data = r.json()
+        
+        # Ensure we return an array
+        if isinstance(data, dict) and "error" in data:
+            return []
+        if not isinstance(data, list):
+            return []
+        
+        return data
     except Exception as e:
-        return {"error": str(e)}
+        print(f"Error fetching jobs: {e}")
+        return []
 
 
 @app.post("/api/upload")
