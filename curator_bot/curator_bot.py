@@ -233,6 +233,13 @@ def sync_video_from_bunny(bunny_video: Dict[str, Any]) -> int:
     conn = db()
     c = conn.cursor()
     
+    # Add cdn_hostname column if it doesn't exist (migration)
+    try:
+        c.execute("ALTER TABLE videos ADD COLUMN cdn_hostname TEXT")
+        conn.commit()
+    except:
+        pass  # Column already exists
+    
     bunny_video_id = bunny_video.get("guid")
     title = bunny_video.get("title", "Untitled")
     duration = bunny_video.get("length", 0)
@@ -249,18 +256,18 @@ def sync_video_from_bunny(bunny_video: Dict[str, Any]) -> int:
         c.execute("""
             UPDATE videos SET 
                 title = ?, duration = ?, thumbnail_url = ?, 
-                video_url = ?, bunny_data = ?, updated_at = ?
+                video_url = ?, cdn_hostname = ?, bunny_data = ?, updated_at = ?
             WHERE bunny_video_id = ?
-        """, (title, duration, thumbnail_url, video_url, json.dumps(bunny_video), now_utc(), bunny_video_id))
+        """, (title, duration, thumbnail_url, video_url, BUNNY_CDN_HOSTNAME, json.dumps(bunny_video), now_utc(), bunny_video_id))
         video_id = existing["id"]
     else:
         # Insert
         c.execute("""
             INSERT INTO videos (bunny_video_id, guid, title, duration, thumbnail_url, 
-                                video_url, bunny_data, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                video_url, cdn_hostname, bunny_data, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (bunny_video_id, bunny_video_id, title, duration, thumbnail_url, 
-              video_url, json.dumps(bunny_video), now_utc(), now_utc()))
+              video_url, BUNNY_CDN_HOSTNAME, json.dumps(bunny_video), now_utc(), now_utc()))
         video_id = c.lastrowid
     
     conn.commit()

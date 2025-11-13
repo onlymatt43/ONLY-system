@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ video.title }} - ONLY</title>
+    <link rel="stylesheet" href="/static/css/public.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header transparent">
+        <div class="container">
+            <div class="logo">ONLY</div>
+            <nav class="nav">
+                <a href="/">Home</a>
+                <a href="/browse">Browse</a>
+                {% if is_vip %}
+                <a href="/browse?category=vip">VIP</a>
+                {% endif %}
+            </nav>
+            <div class="user-menu">
+                {% if is_authenticated %}
+                    {% if is_vip %}
+                    <span class="vip-badge">👑 VIP</span>
+                    {% else %}
+                    <span class="member-badge">Member</span>
+                    {% endif %}
+                    <a href="/logout" class="btn-logout">Logout</a>
+                {% else %}
+                <a href="/login" class="btn-login">Login</a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <!-- Video Player -->
+    <div class="watch-container">
+        <div class="player-wrapper">
+            <video id="videoPlayer" class="video-player" controls autoplay>
+                <source src="https://{{ video.cdn_hostname }}/{{ video.video_id }}/playlist.m3u8" type="application/x-mpegURL">
+                Your browser does not support HLS video playback.
+            </video>
+        </div>
+
+        <!-- Video Info -->
+        <div class="video-details">
+            <h1 class="video-title">{{ video.title }}</h1>
+            <div class="video-stats">
+                <span class="views">👁️ {{ video.views }} views</span>
+                <span class="duration">⏱️ {{ video.duration }}s</span>
+                <span class="upload-date">📅 {{ video.upload_date[:10] if video.upload_date else 'N/A' }}</span>
+                {% if video.access_level == 'vip' %}
+                <span class="access-badge vip">👑 VIP Exclusive</span>
+                {% elif video.access_level == 'ppv' %}
+                <span class="access-badge ppv">💎 Pay-Per-View</span>
+                {% elif video.access_level == 'public' %}
+                <span class="access-badge public">🌍 Public</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Related Videos -->
+        {% if related_videos %}
+        <div class="related-section">
+            <h2>More Videos</h2>
+            <div class="related-grid">
+                {% for related in related_videos %}
+                <a href="/watch/{{ related.id }}" class="related-card">
+                    <div class="related-thumbnail">
+                        <img src="https://{{ related.cdn_hostname }}/{{ related.video_id }}/thumbnail.jpg" 
+                             alt="{{ related.title }}"
+                             onerror="this.src='/static/img/placeholder.jpg'">
+                        <div class="video-duration">{{ related.duration }}s</div>
+                        {% if related.access_level == 'vip' %}
+                        <div class="video-badge vip">👑</div>
+                        {% elif related.access_level == 'ppv' %}
+                        <div class="video-badge ppv">💎</div>
+                        {% endif %}
+                    </div>
+                    <div class="related-info">
+                        <h3>{{ related.title }}</h3>
+                        <p>👁️ {{ related.views }}</p>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 ONLY. Exclusive content platform.</p>
+            <div class="footer-links">
+                <a href="#">Terms</a>
+                <a href="#">Privacy</a>
+                <a href="#">Contact</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- HLS.js for video playback -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script>
+        const video = document.getElementById('videoPlayer');
+        const videoSrc = 'https://{{ video.cdn_hostname }}/{{ video.video_id }}/playlist.m3u8';
+        
+        if (Hls.isSupported()) {
+            const hls = new Hls();
+            hls.loadSource(videoSrc);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                video.play();
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            // Native HLS support (Safari)
+            video.src = videoSrc;
+            video.addEventListener('loadedmetadata', function() {
+                video.play();
+            });
+        }
+    </script>
+    <script src="/static/js/public.js"></script>
+</body>
+</html>

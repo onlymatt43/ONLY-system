@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ required_level }} Required - ONLY</title>
+    <link rel="stylesheet" href="/static/css/public.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">ONLY</div>
+            <nav class="nav">
+                <a href="/">Home</a>
+                <a href="/browse">Browse</a>
+            </nav>
+            <div class="user-menu">
+                <a href="/login" class="btn-login">Login</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Paywall -->
+    <div class="paywall-container">
+        <div class="paywall-box">
+            {% if required_level == 'VIP' %}
+            <div class="paywall-icon">👑</div>
+            <h1>VIP Exclusive</h1>
+            {% elif required_level == 'PPV' %}
+            <div class="paywall-icon">💎</div>
+            <h1>Premium Content</h1>
+            {% endif %}
+            
+            <p class="paywall-message">{{ message }}</p>
+            
+            <div class="video-preview">
+                <img src="https://{{ video.cdn_hostname }}/{{ video.video_id }}/thumbnail.jpg" 
+                     alt="{{ video.title }}"
+                     onerror="this.src='/static/img/placeholder.jpg'">
+                <div class="video-preview-info">
+                    <h2>{{ video.title }}</h2>
+                    <p>⏱️ {{ video.duration }}s</p>
+                </div>
+            </div>
+            
+            <div class="paywall-actions">
+                {% if required_level == 'VIP' %}
+                <a href="/login" class="btn-primary">Enter VIP Token</a>
+                <p class="paywall-hint">Already have a VIP token? Login to access all exclusive content.</p>
+                {% elif required_level == 'PPV' %}
+                <a href="/login" class="btn-primary">Enter Access Token</a>
+                <p class="paywall-hint">Purchase this video to get your access token.</p>
+                {% endif %}
+            </div>
+            
+            <a href="/browse" class="btn-back">← Back to Browse</a>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 ONLY. Exclusive content platform.</p>
+            <div class="footer-links">
+                <a href="#">Terms</a>
+                <a href="#">Privacy</a>
+                <a href="#">Contact</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

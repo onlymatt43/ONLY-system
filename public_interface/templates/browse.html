@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browse - ONLY</title>
+    <link rel="stylesheet" href="/static/css/public.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">ONLY</div>
+            <nav class="nav">
+                <a href="/">Home</a>
+                <a href="/browse" class="active">Browse</a>
+                {% if is_vip %}
+                <a href="/browse?category=vip">VIP</a>
+                {% endif %}
+            </nav>
+            <div class="user-menu">
+                {% if is_authenticated %}
+                    {% if is_vip %}
+                    <span class="vip-badge">👑 VIP</span>
+                    {% else %}
+                    <span class="member-badge">Member</span>
+                    {% endif %}
+                    <a href="/logout" class="btn-logout">Logout</a>
+                {% else %}
+                <a href="/login" class="btn-login">Login</a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <!-- Browse Content -->
+    <div class="browse-container">
+        <!-- Sidebar Filters -->
+        <aside class="browse-sidebar">
+            <h3>Categories</h3>
+            <div class="filter-list">
+                <a href="/browse" class="filter-item {% if not selected_category %}active{% endif %}">
+                    All Videos
+                </a>
+                {% for category in categories %}
+                <a href="/browse?category={{ category.id }}" 
+                   class="filter-item {% if selected_category == category.id %}active{% endif %}">
+                    <span class="filter-icon">{{ category.icon }}</span>
+                    <span class="filter-name">{{ category.name }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </aside>
+
+        <!-- Video Grid -->
+        <main class="browse-main">
+            <div class="browse-header">
+                <h1>Browse Videos</h1>
+                <div class="browse-stats">{{ videos|length }} videos</div>
+            </div>
+
+            <div class="video-grid">
+                {% for video in videos %}
+                <a href="/watch/{{ video.id }}" class="video-card-large">
+                    <div class="video-thumbnail">
+                        <img src="https://{{ video.cdn_hostname }}/{{ video.video_id }}/thumbnail.jpg" 
+                             alt="{{ video.title }}"
+                             onerror="this.src='/static/img/placeholder.jpg'">
+                        <div class="video-duration">{{ video.duration }}s</div>
+                        {% if video.access_level == 'vip' %}
+                        <div class="video-badge vip">👑 VIP</div>
+                        {% elif video.access_level == 'ppv' %}
+                        <div class="video-badge ppv">💎 PPV</div>
+                        {% endif %}
+                        <div class="video-overlay">
+                            <span class="play-icon">▶️</span>
+                        </div>
+                    </div>
+                    <div class="video-info">
+                        <h3 class="video-title">{{ video.title }}</h3>
+                        <div class="video-meta">
+                            <span>👁️ {{ video.views }}</span>
+                            <span>{{ video.upload_date[:10] if video.upload_date else 'N/A' }}</span>
+                        </div>
+                    </div>
+                </a>
+                {% else %}
+                <div class="no-videos">
+                    <p>No videos found.</p>
+                    {% if not is_authenticated %}
+                    <p><a href="/login" class="btn-login">Login</a> to see exclusive content.</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 ONLY. Exclusive content platform.</p>
+            <div class="footer-links">
+                <a href="#">Terms</a>
+                <a href="#">Privacy</a>
+                <a href="#">Contact</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/static/js/public.js"></script>
+</body>
+</html>

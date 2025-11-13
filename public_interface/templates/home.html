@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONLY - Exclusive Content</title>
+    <link rel="stylesheet" href="/static/css/public.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">ONLY</div>
+            <nav class="nav">
+                <a href="/" class="active">Home</a>
+                <a href="/browse">Browse</a>
+                {% if is_vip %}
+                <a href="/browse?category=vip">VIP</a>
+                {% endif %}
+            </nav>
+            <div class="user-menu">
+                {% if is_authenticated %}
+                    {% if is_vip %}
+                    <span class="vip-badge">👑 VIP</span>
+                    {% else %}
+                    <span class="member-badge">Member</span>
+                    {% endif %}
+                    <a href="/logout" class="btn-logout">Logout</a>
+                {% else %}
+                <a href="/login" class="btn-login">Login</a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    {% if hero_video %}
+    <section class="hero">
+        <div class="hero-background">
+            <img src="https://{{ hero_video.cdn_hostname }}/{{ hero_video.video_id }}/thumbnail.jpg" 
+                 alt="{{ hero_video.title }}"
+                 onerror="this.src='/static/img/placeholder.jpg'">
+            <div class="hero-gradient"></div>
+        </div>
+        <div class="hero-content">
+            <h1 class="hero-title">{{ hero_video.title }}</h1>
+            <div class="hero-meta">
+                <span class="duration">{{ hero_video.duration }}s</span>
+                <span class="views">👁️ {{ hero_video.views }}</span>
+                {% if hero_video.access_level == 'vip' %}
+                <span class="vip-label">👑 VIP</span>
+                {% elif hero_video.access_level == 'ppv' %}
+                <span class="ppv-label">💎 PPV</span>
+                {% endif %}
+            </div>
+            <div class="hero-actions">
+                <a href="/watch/{{ hero_video.id }}" class="btn-play">▶️ Watch Now</a>
+                <a href="/browse" class="btn-more">More Info</a>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Category Carousels -->
+    <div class="content">
+        {% if recent_videos %}
+        <section class="carousel-section">
+            <h2 class="carousel-title">Recent Uploads</h2>
+            <div class="carousel">
+                {% for video in recent_videos %}
+                <a href="/watch/{{ video.id }}" class="video-card">
+                    <div class="video-thumbnail">
+                        <img src="https://{{ video.cdn_hostname }}/{{ video.video_id }}/thumbnail.jpg" 
+                             alt="{{ video.title }}"
+                             onerror="this.src='/static/img/placeholder.jpg'">
+                        <div class="video-duration">{{ video.duration }}s</div>
+                        {% if video.access_level == 'vip' %}
+                        <div class="video-badge vip">👑 VIP</div>
+                        {% elif video.access_level == 'ppv' %}
+                        <div class="video-badge ppv">💎 PPV</div>
+                        {% endif %}
+                    </div>
+                    <div class="video-info">
+                        <h3 class="video-title">{{ video.title }}</h3>
+                        <div class="video-meta">
+                            <span>👁️ {{ video.views }}</span>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        {% for carousel in category_carousels %}
+        <section class="carousel-section">
+            <h2 class="carousel-title">
+                <span class="category-icon">{{ carousel.category.icon }}</span>
+                {{ carousel.category.name }}
+            </h2>
+            <div class="carousel">
+                {% for video in carousel.videos %}
+                <a href="/watch/{{ video.id }}" class="video-card">
+                    <div class="video-thumbnail">
+                        <img src="https://{{ video.cdn_hostname }}/{{ video.video_id }}/thumbnail.jpg" 
+                             alt="{{ video.title }}"
+                             onerror="this.src='/static/img/placeholder.jpg'">
+                        <div class="video-duration">{{ video.duration }}s</div>
+                        {% if video.access_level == 'vip' %}
+                        <div class="video-badge vip">👑 VIP</div>
+                        {% elif video.access_level == 'ppv' %}
+                        <div class="video-badge ppv">💎 PPV</div>
+                        {% endif %}
+                    </div>
+                    <div class="video-info">
+                        <h3 class="video-title">{{ video.title }}</h3>
+                        <div class="video-meta">
+                            <span>👁️ {{ video.views }}</span>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+        {% endfor %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 ONLY. Exclusive content platform.</p>
+            <div class="footer-links">
+                <a href="#">Terms</a>
+                <a href="#">Privacy</a>
+                <a href="#">Contact</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/static/js/public.js"></script>
+</body>
+</html>

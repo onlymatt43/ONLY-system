@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - ONLY</title>
+    <link rel="stylesheet" href="/static/css/public.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">ONLY</div>
+            <nav class="nav">
+                <a href="/">Home</a>
+                <a href="/browse">Browse</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Login Form -->
+    <div class="login-container">
+        <div class="login-box">
+            <h1>Access ONLY</h1>
+            <p class="login-subtitle">Enter your access token to unlock exclusive content</p>
+            
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label for="token">Access Token</label>
+                    <input type="text" 
+                           id="token" 
+                           name="token" 
+                           placeholder="XXXX-XXXX-XXXX"
+                           required
+                           pattern="[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}">
+                    <small>Format: XXXX-XXXX-XXXX (e.g., OM43-5NSV-4UDD)</small>
+                </div>
+                
+                <button type="submit" class="btn-submit">Login</button>
+                
+                <div id="loginError" class="error-message" style="display: none;"></div>
+                <div id="loginSuccess" class="success-message" style="display: none;"></div>
+            </form>
+
+            <div class="login-info">
+                <h3>Need an access token?</h3>
+                <ul>
+                    <li>🔓 <strong>Public</strong>: Free access to public content</li>
+                    <li>👑 <strong>VIP</strong>: Full access to all exclusive content</li>
+                    <li>💎 <strong>PPV</strong>: Pay-per-view for specific videos</li>
+                </ul>
+                <p><a href="#">Contact us</a> to get your access token.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 ONLY. Exclusive content platform.</p>
+            <div class="footer-links">
+                <a href="#">Terms</a>
+                <a href="#">Privacy</a>
+                <a href="#">Contact</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const token = document.getElementById('token').value.trim().toUpperCase();
+            const errorDiv = document.getElementById('loginError');
+            const successDiv = document.getElementById('loginSuccess');
+            
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ token })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    successDiv.textContent = `Login successful! Access level: ${data.access_level.toUpperCase()}`;
+                    successDiv.style.display = 'block';
+                    
+                    // Redirect after 1 second
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                } else {
+                    const error = await response.json();
+                    errorDiv.textContent = error.detail || 'Invalid token';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (err) {
+                errorDiv.textContent = 'Network error. Please try again.';
+                errorDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
