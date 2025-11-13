@@ -26,10 +26,20 @@ load_dotenv()
 PORT = int(os.getenv("PORT", "5061"))
 DB_PATH = os.getenv("DB_PATH", "./curator.db")
 
-# Bunny Stream API
-BUNNY_API_KEY = os.getenv("BUNNY_API_KEY", "")
-BUNNY_LIBRARY_ID = os.getenv("BUNNY_LIBRARY_ID", "389178")
-BUNNY_CDN_HOSTNAME = os.getenv("BUNNY_CDN_HOSTNAME", "vz-a3ab0733-842.b-cdn.net")
+# Bunny Stream API - PRIVATE Library (full videos)
+BUNNY_PRIVATE_API_KEY = os.getenv("BUNNY_PRIVATE_API_KEY", "9bf388e8-181a-4740-bf90bc96c622-3394-4591")
+BUNNY_PRIVATE_LIBRARY_ID = os.getenv("BUNNY_PRIVATE_LIBRARY_ID", "389178")
+BUNNY_PRIVATE_CDN_HOSTNAME = os.getenv("BUNNY_PRIVATE_CDN_HOSTNAME", "vz-a3ab0733-842.b-cdn.net")
+
+# Bunny Stream API - PUBLIC Library (previews/posts)
+BUNNY_PUBLIC_API_KEY = os.getenv("BUNNY_PUBLIC_API_KEY", "5eb42e83-6fe9-48fb-b08c5656f422-3033-490a")
+BUNNY_PUBLIC_LIBRARY_ID = os.getenv("BUNNY_PUBLIC_LIBRARY_ID", "420867")
+BUNNY_PUBLIC_CDN_HOSTNAME = os.getenv("BUNNY_PUBLIC_CDN_HOSTNAME", "vz-9cf89254-609.b-cdn.net")
+
+# Legacy variables (keep for backward compatibility)
+BUNNY_API_KEY = BUNNY_PRIVATE_API_KEY
+BUNNY_LIBRARY_ID = BUNNY_PRIVATE_LIBRARY_ID
+BUNNY_CDN_HOSTNAME = BUNNY_PRIVATE_CDN_HOSTNAME
 BUNNY_API_BASE = f"https://video.bunnycdn.com/library/{BUNNY_LIBRARY_ID}"
 
 app = FastAPI(title="Curator Bot", version="1.0")
@@ -70,10 +80,12 @@ def init_db():
         video_url TEXT,
         status TEXT DEFAULT 'active',
         access_level TEXT DEFAULT 'public',
+        library_type TEXT DEFAULT 'private',
         views INTEGER DEFAULT 0,
         created_at TEXT,
         updated_at TEXT,
-        bunny_data TEXT
+        bunny_data TEXT,
+        cdn_hostname TEXT
     )""")
     
     # Categories table
@@ -154,61 +166,82 @@ def init_db():
 # BUNNY STREAM API
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-def bunny_headers():
-    """Return Bunny API headers"""
+def get_library_config(library_type: str = "private") -> Dict[str, str]:
+    """Get library configuration (ID, CDN hostname, API key)"""
+    if library_type == "public":
+        return {
+            "api_key": BUNNY_PUBLIC_API_KEY,
+            "library_id": BUNNY_PUBLIC_LIBRARY_ID,
+            "cdn_hostname": BUNNY_PUBLIC_CDN_HOSTNAME,
+            "api_base": f"https://video.bunnycdn.com/library/{BUNNY_PUBLIC_LIBRARY_ID}"
+        }
+    else:  # private (default)
+        return {
+            "api_key": BUNNY_PRIVATE_API_KEY,
+            "library_id": BUNNY_PRIVATE_LIBRARY_ID,
+            "cdn_hostname": BUNNY_PRIVATE_CDN_HOSTNAME,
+            "api_base": f"https://video.bunnycdn.com/library/{BUNNY_PRIVATE_LIBRARY_ID}"
+        }
+
+
+def bunny_headers(library_type: str = "private"):
+    """Return Bunny API headers for specific library"""
+    config = get_library_config(library_type)
     return {
-        "AccessKey": BUNNY_API_KEY,
+        "AccessKey": config["api_key"],
         "Content-Type": "application/json"
     }
 
 
-def fetch_bunny_videos(page: int = 1, items_per_page: int = 100) -> Dict[str, Any]:
+def fetch_bunny_videos(page: int = 1, items_per_page: int = 100, library_type: str = "private") -> Dict[str, Any]:
     """Fetch videos from Bunny Stream API"""
-    url = f"{BUNNY_API_BASE}/videos"
+    config = get_library_config(library_type)
+    url = f"{config['api_base']}/videos"
     params = {"page": page, "itemsPerPage": items_per_page}
     
     try:
-        response = requests.get(url, headers=bunny_headers(), params=params, timeout=30)
+        response = requests.get(url, headers=bunny_headers(library_type), params=params, timeout=30)
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        logger.error(f"Error fetching Bunny videos: {e}")
+        logger.error(f"Error fetching Bunny videos ({library_type}): {e}")
         return {"items": [], "totalItems": 0}
 
 
-def get_bunny_video(video_id: str) -> Optional[Dict[str, Any]]:
+def get_bunny_video(video_id: str, library_type: str = "private") -> Optional[Dict[str, Any]]:
     """Get single video from Bunny Stream API"""
-    url = f"{BUNNY_API_BASE}/videos/{video_id}"
+    config = get_library_config(library_type)
+    url = f"{config['api_base']}/videos/{video_id}"
     
     try:
-        response = requests.get(url, headers=bunny_headers(), timeout=10)
+        response = requests.get(url, headers=bunny_headers(library_type), timeout=10)
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        logger.error(f"Error fetching Bunny video {video_id}: {e}")
+        logger.error(f"Error fetching Bunny video {video_id} ({library_type}): {e}")
         return None
 
 
-def upload_to_bunny(title: str, file_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def upload_to_bunny(title: str, file_path: Optional[str] = None, library_type: str = "private") -> Optional[Dict[str, Any]]:
     """Upload video to Bunny Stream"""
-    # Create video object first
-    url = f"{BUNNY_API_BASE}/videos"
+    config = get_library_config(library_type)
+    url = f"{config['api_base']}/videos"
     data = {"title": title}
     
     try:
-        response = requests.post(url, headers=bunny_headers(), json=data, timeout=10)
+        response = requests.post(url, headers=bunny_headers(library_type), json=data, timeout=10)
         response.raise_for_status()
         video_data = response.json()
         
         # If file_path provided, upload the file
         if file_path and os.path.exists(file_path):
             video_id = video_data.get("guid")
-            upload_url = f"{BUNNY_API_BASE}/videos/{video_id}"
+            upload_url = f"{config['api_base']}/videos/{video_id}"
             
             with open(file_path, 'rb') as f:
                 upload_response = requests.put(
                     upload_url,
-                    headers={"AccessKey": BUNNY_API_KEY},
+                    headers={"AccessKey": config["api_key"]},
                     data=f,
                     timeout=300
                 )
@@ -216,7 +249,7 @@ def upload_to_bunny(title: str, file_path: Optional[str] = None) -> Optional[Dic
         
         return video_data
     except Exception as e:
-        logger.error(f"Error uploading to Bunny: {e}")
+        logger.error(f"Error uploading to Bunny ({library_type}): {e}")
         return None
 
 
@@ -228,17 +261,20 @@ def now_utc():
     return datetime.now(timezone.utc).isoformat()
 
 
-def sync_video_from_bunny(bunny_video: Dict[str, Any]) -> int:
+def sync_video_from_bunny(bunny_video: Dict[str, Any], library_type: str = "private") -> int:
     """Sync a video from Bunny Stream to local DB"""
     conn = db()
     c = conn.cursor()
     
-    # Add cdn_hostname column if it doesn't exist (migration)
+    # Add library_type column if it doesn't exist (migration)
     try:
-        c.execute("ALTER TABLE videos ADD COLUMN cdn_hostname TEXT")
+        c.execute("ALTER TABLE videos ADD COLUMN library_type TEXT DEFAULT 'private'")
         conn.commit()
     except:
         pass  # Column already exists
+    
+    config = get_library_config(library_type)
+    cdn_hostname = config["cdn_hostname"]
     
     bunny_video_id = bunny_video.get("guid")
     title = bunny_video.get("title", "Untitled")
@@ -246,7 +282,7 @@ def sync_video_from_bunny(bunny_video: Dict[str, Any]) -> int:
     thumbnail_url = bunny_video.get("thumbnailFileName", "")
     
     # Build video URL
-    video_url = f"https://{BUNNY_CDN_HOSTNAME}/{bunny_video_id}/playlist.m3u8"
+    video_url = f"https://{cdn_hostname}/{bunny_video_id}/playlist.m3u8"
     
     # Check if video exists
     existing = c.execute("SELECT id FROM videos WHERE bunny_video_id = ?", (bunny_video_id,)).fetchone()
@@ -256,18 +292,18 @@ def sync_video_from_bunny(bunny_video: Dict[str, Any]) -> int:
         c.execute("""
             UPDATE videos SET 
                 title = ?, duration = ?, thumbnail_url = ?, 
-                video_url = ?, cdn_hostname = ?, bunny_data = ?, updated_at = ?
+                video_url = ?, cdn_hostname = ?, library_type = ?, bunny_data = ?, updated_at = ?
             WHERE bunny_video_id = ?
-        """, (title, duration, thumbnail_url, video_url, BUNNY_CDN_HOSTNAME, json.dumps(bunny_video), now_utc(), bunny_video_id))
+        """, (title, duration, thumbnail_url, video_url, cdn_hostname, library_type, json.dumps(bunny_video), now_utc(), bunny_video_id))
         video_id = existing["id"]
     else:
         # Insert
         c.execute("""
             INSERT INTO videos (bunny_video_id, guid, title, duration, thumbnail_url, 
-                                video_url, cdn_hostname, bunny_data, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                video_url, cdn_hostname, library_type, bunny_data, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (bunny_video_id, bunny_video_id, title, duration, thumbnail_url, 
-              video_url, BUNNY_CDN_HOSTNAME, json.dumps(bunny_video), now_utc(), now_utc()))
+              video_url, cdn_hostname, library_type, json.dumps(bunny_video), now_utc(), now_utc()))
         video_id = c.lastrowid
     
     conn.commit()
@@ -329,34 +365,52 @@ async def health():
 
 
 @app.post("/sync/bunny")
-async def sync_bunny_videos():
-    """Sync all videos from Bunny Stream API"""
-    logger.info("[Sync] Starting Bunny Stream sync...")
+async def sync_bunny_videos(library_type: Optional[str] = None):
+    """Sync videos from Bunny Stream API
     
-    page = 1
+    Args:
+        library_type: "private", "public", or None (sync both)
+    """
+    libraries_to_sync = []
+    
+    if library_type:
+        libraries_to_sync = [library_type]
+    else:
+        libraries_to_sync = ["private", "public"]
+    
     total_synced = 0
+    results = {}
     
-    while True:
-        result = fetch_bunny_videos(page=page)
-        videos = result.get("items", [])
+    for lib_type in libraries_to_sync:
+        logger.info(f"[Sync] Starting {lib_type.upper()} library sync...")
+        lib_synced = 0
+        page = 1
         
-        if not videos:
-            break
+        while True:
+            result = fetch_bunny_videos(page=page, library_type=lib_type)
+            videos = result.get("items", [])
+            
+            if not videos:
+                break
+            
+            for video in videos:
+                try:
+                    sync_video_from_bunny(video, library_type=lib_type)
+                    lib_synced += 1
+                    total_synced += 1
+                except Exception as e:
+                    logger.error(f"Error syncing video {video.get('guid')} ({lib_type}): {e}")
+            
+            # Check if more pages
+            if len(videos) < 100:
+                break
+            page += 1
         
-        for video in videos:
-            try:
-                sync_video_from_bunny(video)
-                total_synced += 1
-            except Exception as e:
-                logger.error(f"Error syncing video {video.get('guid')}: {e}")
-        
-        # Check if more pages
-        if len(videos) < 100:
-            break
-        page += 1
+        results[lib_type] = lib_synced
+        logger.info(f"[Sync] {lib_type.upper()} completed: {lib_synced} videos")
     
-    logger.info(f"[Sync] Completed. Synced {total_synced} videos")
-    return {"ok": True, "synced": total_synced}
+    logger.info(f"[Sync] Total synced: {total_synced} videos")
+    return {"ok": True, "total_synced": total_synced, "details": results}
 
 
 @app.get("/videos")
@@ -366,9 +420,14 @@ async def list_videos(
     category: Optional[str] = None,
     tag: Optional[str] = None,
     series: Optional[str] = None,
-    access: Optional[str] = None
+    access: Optional[str] = None,
+    library: Optional[str] = None
 ):
-    """List videos with filters"""
+    """List videos with filters
+    
+    Args:
+        library: "private" or "public" to filter by library type
+    """
     conn = db()
     c = conn.cursor()
     
@@ -378,6 +437,10 @@ async def list_videos(
     if access:
         query += " AND access_level = ?"
         params.append(access)
+    
+    if library:
+        query += " AND library_type = ?"
+        params.append(library)
     
     # TODO: Add category/tag/series filtering with JOINs
     
