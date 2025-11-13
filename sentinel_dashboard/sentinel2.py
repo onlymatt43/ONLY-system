@@ -338,14 +338,189 @@ def attempt_auto_repair(service_name: str, diagnosis: Dict) -> bool:
     
     return False
 
+def check_video_security() -> Dict[str, Any]:
+    """Vérifie que les vidéos sont sécurisées avec Token Auth"""
+    print("[Sentinel] 🔒 Vérification sécurité vidéo...")
+    
+    results = {
+        "secure": True,
+        "checks": [],
+        "vulnerabilities": []
+    }
+    
+    try:
+        # Test 1: Vérifier que Token Auth est actif (token + expires dans URL)
+        print("  → Test 1: Token Auth actif?")
+        response = requests.get(f"{PUBLIC_URL}/watch/121", allow_redirects=False, timeout=10)
+        
+        if response.status_code in [301, 302, 303, 307, 308]:
+            # Redirige vers login = bon signe!
+            results["checks"].append({
+                "name": "Page redirect sans auth",
+                "status": "PASS",
+                "message": "Page /watch redirige vers login (sécurisé)"
+            })
+            print("  ✅ Page redirige vers login")
+        elif response.status_code == 200:
+            # Vérifie si iframe visible avec token
+            html = response.text
+            
+            # Cherche l'iframe Bunny
+            import re
+            iframe_match = re.search(r'src="([^"]*iframe\.mediadelivery\.net[^"]*)"', html)
+            
+            if iframe_match:
+                iframe_url = iframe_match.group(1)
+                # Decode HTML entities
+                iframe_url = iframe_url.replace("&amp;", "&")
+                
+                if "token=" in iframe_url and "expires=" in iframe_url:
+                    results["checks"].append({
+                        "name": "Token Auth présent",
+                        "status": "PASS",
+                        "message": "URL vidéo contient token et expiration"
+                    })
+                    print("  ✅ Token Auth actif dans iframe URL")
+                else:
+                    # CRITIQUE: iframe sans token!
+                    results["secure"] = False
+                    results["vulnerabilities"].append({
+                        "severity": "CRITICAL",
+                        "issue": "Iframe vidéo sans Token Auth",
+                        "impact": "Vidéos copiables et embeddables n'importe où",
+                        "fix": "Ajouter BUNNY_SECURITY_KEY=453f0507-2f2c-4155-95bd-31a2fdd3610c dans Render env vars"
+                    })
+                    results["checks"].append({
+                        "name": "Token Auth présent",
+                        "status": "FAIL",
+                        "message": f"iframe visible SANS token - VULNÉRABILITÉ!\nURL: {iframe_url[:100]}"
+                    })
+                    print("  ❌ CRITIQUE: iframe sans token détecté!")
+            else:
+                results["checks"].append({
+                    "name": "Token Auth présent",
+                    "status": "WARNING",
+                    "message": "Impossible de vérifier (pas d'iframe trouvé)"
+                })
+                print("  ⚠️  Pas d'iframe trouvé dans HTML")
+        
+        # Test 2: Vérifier que HLS URLs sont bloquées (403)
+        print("  → Test 2: HLS URLs bloquées?")
+        test_hls = "https://vz-a3ab0733-842.b-cdn.net/85e41419-5b46-4db9-ba15-32c86aa08032/playlist.m3u8"
+        hls_response = requests.get(test_hls, timeout=5)
+        
+        if hls_response.status_code == 403:
+            results["checks"].append({
+                "name": "HLS direct access blocked",
+                "status": "PASS",
+                "message": "URLs HLS bloquées (403 Forbidden)"
+            })
+            print("  ✅ HLS URLs bloquées")
+        else:
+            results["secure"] = False
+            results["vulnerabilities"].append({
+                "severity": "CRITICAL",
+                "issue": "URLs HLS accessibles directement",
+                "impact": "Vidéos téléchargeables en masse",
+                "fix": "Activer 'CDN Token Auth' dans Bunny Dashboard"
+            })
+            results["checks"].append({
+                "name": "HLS direct access blocked",
+                "status": "FAIL",
+                "message": f"HLS accessible! Status: {hls_response.status_code}"
+            })
+            print(f"  ❌ HLS accessible (status {hls_response.status_code})")
+        
+        # Test 3: Vérifier que API ne leak pas metadata VIP
+        print("  → Test 3: API metadata sécurisée?")
+        api_response = requests.get(f"{PUBLIC_URL}/api/videos", timeout=5)
+        if api_response.status_code == 200:
+            videos = api_response.json()
+            vip_videos = [v for v in videos if v.get("access_level") == "vip"]
+            
+            if vip_videos:
+                results["vulnerabilities"].append({
+                    "severity": "MEDIUM",
+                    "issue": f"{len(vip_videos)} vidéos VIP dans API publique",
+                    "impact": "Metadata exposée (titres, thumbnails)",
+                    "fix": "Filtrer access_level='vip' dans /api/videos"
+                })
+                results["checks"].append({
+                    "name": "API metadata protection",
+                    "status": "FAIL",
+                    "message": f"{len(vip_videos)} vidéos VIP exposées"
+                })
+                print(f"  ⚠️  {len(vip_videos)} vidéos VIP dans API publique")
+            else:
+                results["checks"].append({
+                    "name": "API metadata protection",
+                    "status": "PASS",
+                    "message": "Seulement vidéos publiques dans API"
+                })
+                print("  ✅ API ne contient que vidéos publiques")
+        
+    except Exception as e:
+        results["checks"].append({
+            "name": "Security audit",
+            "status": "ERROR",
+            "message": f"Erreur audit: {str(e)}"
+        })
+        print(f"  ❌ Erreur audit: {e}")
+    
+    # Score de sécurité
+    passed = sum(1 for c in results["checks"] if c["status"] == "PASS")
+    total = len(results["checks"])
+    results["security_score"] = (passed / total * 100) if total > 0 else 0
+    
+    print(f"  📊 Score sécurité: {results['security_score']:.0f}% ({passed}/{total})")
+    
+    return results
+
 def monitoring_loop():
     """Boucle de monitoring principale"""
     print(f"[Sentinel] Monitoring démarré (interval: {CHECK_INTERVAL}s)")
     
     consecutive_failures = defaultdict(int)
+    security_check_counter = 0
+    SECURITY_CHECK_EVERY = 10  # Check sécurité tous les 10 cycles (5 minutes si interval=30s)
     
     while True:
         try:
+            # Check sécurité périodique
+            security_check_counter += 1
+            if security_check_counter >= SECURITY_CHECK_EVERY:
+                security_check_counter = 0
+                security_results = check_video_security()
+                system_status["security"] = security_results
+                
+                # Créer incident si vulnérabilité critique
+                if not security_results["secure"]:
+                    critical_vulns = [v for v in security_results["vulnerabilities"] if v["severity"] == "CRITICAL"]
+                    if critical_vulns:
+                        for vuln in critical_vulns:
+                            # Vérifier si incident déjà ouvert
+                            open_incidents = get_open_incidents()
+                            existing = any(i["issue"] == vuln["issue"] and not i["resolved_at"] for i in open_incidents)
+                            
+                            if not existing:
+                                incident_id = log_incident(
+                                    "security",
+                                    vuln["severity"],
+                                    vuln["issue"],
+                                    vuln["fix"]
+                                )
+                                print(f"[Sentinel] 🚨 SÉCURITÉ: {vuln['issue']}")
+                                
+                                # Ajouter à alertes
+                                system_status["alerts"].append({
+                                    "id": incident_id,
+                                    "service": "security",
+                                    "severity": vuln["severity"],
+                                    "issue": vuln["issue"],
+                                    "recommendation": vuln["fix"],
+                                    "timestamp": datetime.now().isoformat()
+                                })
+            
             for service_name, config in SERVICES.items():
                 # Check santé
                 health_result = check_service_health(service_name, config)
@@ -535,6 +710,18 @@ def get_metrics():
         }
     
     return JSONResponse(metrics)
+
+@app.get("/api/security/check")
+def run_security_check():
+    """Lance un check de sécurité vidéo manuel"""
+    results = check_video_security()
+    return JSONResponse(results)
+
+@app.get("/api/security/status")
+def get_security_status():
+    """Retourne le dernier état de sécurité"""
+    security = system_status.get("security", {"message": "Aucun check effectué encore"})
+    return JSONResponse(security)
 
 @app.get("/health")
 def health():
