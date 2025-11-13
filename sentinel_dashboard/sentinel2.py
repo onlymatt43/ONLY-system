@@ -28,9 +28,11 @@ load_dotenv()
 
 PORT = int(os.getenv("PORT", "5059"))
 GATEWAY_URL = os.getenv("GATEWAY_URL", "http://localhost:5055")
+CURATOR_URL = os.getenv("CURATOR_URL", "http://localhost:5061")
 NARRATOR_URL = os.getenv("NARRATOR_URL", "http://localhost:5056")
 PUBLISHER_URL = os.getenv("PUBLISHER_URL", "http://localhost:5058")
 MONETIZER_URL = os.getenv("MONETIZER_URL", "http://localhost:5060")
+PUBLIC_URL = os.getenv("PUBLIC_URL", "http://localhost:5062")
 WEB_URL = os.getenv("WEB_URL", "http://localhost:5000")
 
 # Configuration alertes
@@ -48,9 +50,11 @@ templates = Jinja2Templates(directory="templates")
 # Services à surveiller
 SERVICES = {
     "gateway": {"url": GATEWAY_URL, "critical": True, "endpoints": ["/", "/jobs"]},
+    "curator": {"url": CURATOR_URL, "critical": True, "endpoints": ["/", "/videos"]},
     "narrator": {"url": NARRATOR_URL, "critical": True, "endpoints": ["/"]},
     "publisher": {"url": PUBLISHER_URL, "critical": False, "endpoints": ["/"]},
     "monetizer": {"url": MONETIZER_URL, "critical": True, "endpoints": ["/", "/tokens"]},
+    "public": {"url": PUBLIC_URL, "critical": True, "endpoints": ["/", "/watch/121"]},
     "web": {"url": WEB_URL, "critical": True, "endpoints": ["/"]}
 }
 
