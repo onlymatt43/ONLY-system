@@ -172,6 +172,14 @@ async def browse(request: Request, category: str = None, tag: str = None, access
 async def watch(request: Request, video_id: str, access_token: str = Cookie(None)):
     """Watch page - Video player with access control"""
     
+    # Import Bunny signer for secure embed URLs
+    try:
+        from bunny_signer import get_secure_embed_url
+        use_signed_urls = True
+    except Exception as e:
+        print(f"Warning: bunny_signer not available: {e}")
+        use_signed_urls = False
+    
     # Verify token
     token_data = None
     if access_token:
@@ -200,9 +208,27 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
     related_videos = fetch_videos(limit=20)
     related_videos = [v for v in related_videos if v["id"] != video_id and check_video_access(v, token_data)][:6]
     
+    # Generate secure embed URL if signing is available
+    if use_signed_urls:
+        try:
+            secure_embed_url = get_secure_embed_url(
+                library_id="389178",
+                video_id=video["bunny_video_id"],
+                autoplay=True,
+                expires_in=7200  # 2 hours
+            )
+        except Exception as e:
+            print(f"Error generating signed URL: {e}")
+            # Fallback to simple URL
+            secure_embed_url = f"https://iframe.mediadelivery.net/embed/389178/{video['bunny_video_id']}?autoplay=true&muted=false&loop=false&preload=true"
+    else:
+        # Simple URL without token
+        secure_embed_url = f"https://iframe.mediadelivery.net/embed/389178/{video['bunny_video_id']}?autoplay=true&muted=false&loop=false&preload=true"
+    
     return templates.TemplateResponse("watch.html", {
         "request": request,
         "video": video,
+        "secure_embed_url": secure_embed_url,
         "related_videos": related_videos,
         "is_authenticated": token_data is not None,
         "is_vip": token_data and token_data.get("access_level") == "vip"
