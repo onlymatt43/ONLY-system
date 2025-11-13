@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel AI - Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: rgba(0,0,0,0.3);
+            padding: 1rem 2rem;
+            border-bottom: 2px solid #6c5ce7;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            color: #6c5ce7;
+        }
+        
+        .health-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255,255,255,0.1);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+        }
+        
+        .health-score {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
+        .health-good { color: #00b894; }
+        .health-warning { color: #fdcb6e; }
+        .health-critical { color: #d63031; }
+        
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 1200px;
+            width: 100%;
+            margin: 2rem auto;
+            background: rgba(0,0,0,0.4);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .messages {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .message {
+            display: flex;
+            gap: 1rem;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.user {
+            justify-content: flex-end;
+        }
+        
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .message.user .message-avatar {
+            background: #6c5ce7;
+        }
+        
+        .message.sentinel .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .message-content {
+            max-width: 70%;
+            background: rgba(255,255,255,0.1);
+            padding: 1rem 1.5rem;
+            border-radius: 15px;
+            line-height: 1.6;
+        }
+        
+        .message.user .message-content {
+            background: #6c5ce7;
+        }
+        
+        .message-content strong {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #a29bfe;
+        }
+        
+        .input-area {
+            padding: 1.5rem;
+            background: rgba(0,0,0,0.3);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .input-area input {
+            flex: 1;
+            padding: 1rem;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid transparent;
+            border-radius: 25px;
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        
+        .input-area input:focus {
+            border-color: #6c5ce7;
+            background: rgba(255,255,255,0.15);
+        }
+        
+        .input-area button {
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 25px;
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        .input-area button:hover {
+            transform: scale(1.05);
+        }
+        
+        .input-area button:active {
+            transform: scale(0.95);
+        }
+        
+        .input-area button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .suggestions {
+            padding: 0 2rem 1rem 2rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .suggestion-chip {
+            padding: 0.5rem 1rem;
+            background: rgba(108, 92, 231, 0.3);
+            border: 1px solid #6c5ce7;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+        
+        .suggestion-chip:hover {
+            background: rgba(108, 92, 231, 0.5);
+            transform: translateY(-2px);
+        }
+        
+        .loading {
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            color: #a29bfe;
+        }
+        
+        .loading.active {
+            display: flex;
+        }
+        
+        .loading-dots {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .loading-dot {
+            width: 8px;
+            height: 8px;
+            background: #6c5ce7;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+        
+        .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        
+        pre {
+            background: rgba(0,0,0,0.3);
+            padding: 1rem;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🤖 Sentinel AI</h1>
+        <div class="health-badge">
+            <span>System Health:</span>
+            <span class="health-score" id="healthScore">--</span>
+        </div>
+    </div>
+    
+    <div class="chat-container">
+        <div class="messages" id="messages">
+            <div class="message sentinel">
+                <div class="message-avatar">S</div>
+                <div class="message-content">
+                    <strong>Sentinel AI</strong>
+                    Hello! I'm monitoring the ONLY system. Ask me about:
+                    <br><br>
+                    • <strong>status</strong> - System or service health<br>
+                    • <strong>metrics</strong> - Detailed statistics<br>
+                    • <strong>alerts</strong> - Active problems<br>
+                    • <strong>restart</strong> - Wake up services<br>
+                    <br>
+                    Try: "status", "metrics curator", "show alerts"
+                </div>
+            </div>
+        </div>
+        
+        <div class="suggestions">
+            <div class="suggestion-chip" onclick="sendMessage('status')">📊 System Status</div>
+            <div class="suggestion-chip" onclick="sendMessage('show alerts')">🚨 Alerts</div>
+            <div class="suggestion-chip" onclick="sendMessage('metrics gateway')">📈 Gateway Metrics</div>
+            <div class="suggestion-chip" onclick="sendMessage('restart narrator')">🔄 Restart Service</div>
+        </div>
+        
+        <div class="input-area">
+            <input 
+                type="text" 
+                id="messageInput" 
+                placeholder="Ask Sentinel anything..." 
+                onkeypress="handleKeyPress(event)"
+            >
+            <button onclick="sendMessage()" id="sendButton">Send</button>
+            <div class="loading" id="loading">
+                <span>Thinking</span>
+                <div class="loading-dots">
+                    <div class="loading-dot"></div>
+                    <div class="loading-dot"></div>
+                    <div class="loading-dot"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const messagesContainer = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const loading = document.getElementById('loading');
+        const healthScore = document.getElementById('healthScore');
+        
+        // Update health score
+        async function updateHealth() {
+            try {
+                const res = await fetch('/api/system/health');
+                const data = await res.json();
+                
+                healthScore.textContent = `${data.health_score}/100`;
+                healthScore.className = 'health-score';
+                
+                if (data.health_score >= 80) {
+                    healthScore.classList.add('health-good');
+                } else if (data.health_score >= 50) {
+                    healthScore.classList.add('health-warning');
+                } else {
+                    healthScore.classList.add('health-critical');
+                }
+            } catch (e) {
+                console.error('Failed to update health:', e);
+            }
+        }
+        
+        // Add message to chat
+        function addMessage(content, isSentinel = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isSentinel ? 'sentinel' : 'user'}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = isSentinel ? 'S' : 'U';
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            
+            if (isSentinel) {
+                contentDiv.innerHTML = `<strong>Sentinel AI</strong>${content.replace(/\n/g, '<br>')}`;
+            } else {
+                contentDiv.textContent = content;
+            }
+            
+            if (isSentinel) {
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(contentDiv);
+            } else {
+                messageDiv.appendChild(contentDiv);
+                messageDiv.appendChild(avatar);
+            }
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        // Send message
+        async function sendMessage(text = null) {
+            const message = text || messageInput.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message
+            addMessage(message, false);
+            messageInput.value = '';
+            
+            // Show loading
+            sendButton.disabled = true;
+            loading.classList.add('active');
+            
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                
+                const data = await res.json();
+                
+                // Add Sentinel response
+                addMessage(data.response, true);
+                
+            } catch (e) {
+                addMessage(`❌ Error: ${e.message}`, true);
+            } finally {
+                sendButton.disabled = false;
+                loading.classList.remove('active');
+                messageInput.focus();
+            }
+        }
+        
+        // Handle enter key
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+        
+        // Initialize
+        updateHealth();
+        setInterval(updateHealth, 30000); // Update every 30s
+        messageInput.focus();
+    </script>
+</body>
+</html>

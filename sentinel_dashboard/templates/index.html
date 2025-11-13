@@ -114,7 +114,12 @@
 </head>
 <body>
     <div class="wrap">
-        <h1>🎯 Sentinel Dashboard</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1>🎯 Sentinel Dashboard</h1>
+            <a href="/chat" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px 20px; border-radius: 25px; text-decoration: none; font-weight: bold;">
+                🤖 Chat with AI
+            </a>
+        </div>
         <div class="small">
             Auto-refresh: {{ refresh }}s · DB: 
             {% if has_db %}
