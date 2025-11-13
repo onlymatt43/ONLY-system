@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}FOMO Campaigns{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>🔥 FOMO Campaigns</h1>
+    <p>Gérez vos campagnes de rareté et urgence</p>
+</div>
+
+<div style="margin-bottom: 30px;">
+    <a href="{{ url_for('fomo_create') }}" class="btn">➕ Nouvelle Campagne</a>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Technique</th>
+                <th>Message</th>
+                <th>Countdown</th>
+                <th>Audience</th>
+                <th>Urgency</th>
+                <th>Stats</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for campaign in campaigns %}
+            <tr>
+                <td><span class="badge badge-warning">{{ campaign.technique.value }}</span></td>
+                <td>{{ campaign.message[:50] }}...</td>
+                <td>{{ campaign.get_countdown_message()[:40] }}</td>
+                <td>{{ campaign.target_audience }}</td>
+                <td>
+                    <span style="color: {% if campaign.urgency_level >= 8 %}#ef4444{% elif campaign.urgency_level >= 5 %}#f59e0b{% else %}#10b981{% endif %}">
+                        {{ campaign.urgency_level }}/10
+                    </span>
+                </td>
+                <td>
+                    {{ campaign.impressions }} views<br>
+                    {{ campaign.clicks }} clicks<br>
+                    <strong>{{ (campaign.conversion_rate * 100)|round(1) }}%</strong>
+                </td>
+                <td>
+                    {% if campaign.is_expired() %}
+                        <span class="badge badge-danger">Expired</span>
+                    {% else %}
+                        <span class="badge badge-success">Active</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" style="text-align: center; color: #666; padding: 40px;">
+                    Aucune campagne FOMO active. Créez-en une! 🔥
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

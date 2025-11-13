@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Overview{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>📊 Marketing System Overview</h1>
+    <p>Vue d'ensemble de tous vos modules</p>
+</div>
+
+<!-- Stats Cards -->
+<div class="cards">
+    <div class="card">
+        <div class="card-title">FOMO Campaigns</div>
+        <div class="card-value">{{ sales_stats.fomo.total_campaigns }}</div>
+        <div class="card-subtitle">{{ sales_stats.fomo.total_impressions }} impressions</div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">Conversion Rate</div>
+        <div class="card-value">{{ (sales_stats.fomo.avg_conversion_rate * 100)|round(1) }}%</div>
+        <div class="card-subtitle">{{ sales_stats.fomo.total_clicks }} clicks total</div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">Social Proofs</div>
+        <div class="card-value">{{ sales_stats.social_proof.total_proofs }}</div>
+        <div class="card-subtitle">Actives sur le site</div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">Retention Campaigns</div>
+        <div class="card-value">{{ sales_stats.retention.total_campaigns }}</div>
+        <div class="card-subtitle">{{ sales_stats.retention.total_sent }} messages envoyés</div>
+    </div>
+</div>
+
+<!-- Top Content -->
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Top Content</th>
+                <th>Type</th>
+                <th>Views</th>
+                <th>Avg Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for content in top_content %}
+            <tr>
+                <td>{{ content.content_id }}</td>
+                <td><span class="badge badge-info">{{ content.content_type }}</span></td>
+                <td>{{ content.total_views }}</td>
+                <td>{{ content.avg_time_seconds }}s</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" style="text-align: center; color: #666;">Aucun contenu pour le moment</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div style="margin-top: 40px;">
+    <a href="{{ url_for('fomo_create') }}" class="btn">🔥 Créer Campagne FOMO</a>
+    <a href="{{ url_for('chat_sessions') }}" class="btn btn-secondary">💬 Voir Conversations</a>
+</div>
+{% endblock %}

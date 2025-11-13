@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>📈 Analytics Dashboard</h1>
+    <p>Vue d'ensemble des performances</p>
+</div>
+
+<!-- Sales Stats -->
+<h2 style="margin-bottom: 20px; color: #ff6b35;">🔥 FOMO & Sales</h2>
+<div class="cards">
+    <div class="card">
+        <div class="card-title">Total Campaigns</div>
+        <div class="card-value">{{ sales_stats.fomo.total_campaigns }}</div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">Impressions</div>
+        <div class="card-value">{{ sales_stats.fomo.total_impressions }}</div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">Clicks</div>
+        <div class="card-value">{{ sales_stats.fomo.total_clicks }}</div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">Conversion Rate</div>
+        <div class="card-value">{{ (sales_stats.fomo.avg_conversion_rate * 100)|round(1) }}%</div>
+    </div>
+</div>
+
+<!-- Social Proof Stats -->
+<h2 style="margin: 40px 0 20px; color: #10b981;">👥 Social Proof</h2>
+<div class="cards">
+    <div class="card">
+        <div class="card-title">Active Proofs</div>
+        <div class="card-value">{{ sales_stats.social_proof.total_proofs }}</div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">Average Value</div>
+        <div class="card-value">{{ sales_stats.social_proof.avg_value|round(0) }}</div>
+    </div>
+</div>
+
+<!-- Retention Stats -->
+<h2 style="margin: 40px 0 20px; color: #3b82f6;">🎯 Retention</h2>
+<div class="cards">
+    <div class="card">
+        <div class="card-title">Campaigns</div>
+        <div class="card-value">{{ sales_stats.retention.total_campaigns }}</div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">Messages Sent</div>
+        <div class="card-value">{{ sales_stats.retention.total_sent }}</div>
+    </div>
+</div>
+
+<!-- Chat Stats -->
+<h2 style="margin: 40px 0 20px; color: #f59e0b;">💬 Consumer Chat</h2>
+<div class="cards">
+    <div class="card">
+        <div class="card-title">Total Sessions</div>
+        <div class="card-value">{{ chat_stats.total_sessions }}</div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">Avg Messages</div>
+        <div class="card-value">{{ chat_stats.avg_messages_per_session|round(1) }}</div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">Conversion Rate</div>
+        <div class="card-value">{{ chat_stats.conversion_rate|round(1) }}%</div>
+    </div>
+</div>
+
+<!-- Top Content -->
+<h2 style="margin: 40px 0 20px;">📊 Top Content</h2>
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Rank</th>
+                <th>Content ID</th>
+                <th>Type</th>
+                <th>Views</th>
+                <th>Avg Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for content in top_content %}
+            <tr>
+                <td><strong>#{{ loop.index }}</strong></td>
+                <td>{{ content.content_id }}</td>
+                <td><span class="badge badge-info">{{ content.content_type }}</span></td>
+                <td>{{ content.total_views }}</td>
+                <td>{{ content.avg_time_seconds }}s</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" style="text-align: center; color: #666; padding: 40px;">
+                    Pas encore de données
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Chat Detail{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>💬 Conversation Details</h1>
+    <p>Session: <code>{{ session_id }}</code></p>
+</div>
+
+<a href="{{ url_for('chat_sessions') }}" class="btn btn-secondary" style="margin-bottom: 20px;">← Back to Sessions</a>
+
+<div class="card" style="max-width: 800px;">
+    <h3 style="margin-bottom: 20px;">Messages ({{ messages|length }})</h3>
+    
+    <div style="max-height: 600px; overflow-y: auto;">
+        {% for msg in messages %}
+        <div style="margin-bottom: 16px; padding: 16px; border-radius: 8px; background: {% if msg.role == 'user' %}#2a2a2a{% else %}#1a3a2a{% endif %}; {% if msg.role == 'user' %}margin-left: 60px{% else %}margin-right: 60px{% endif %}">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong>{% if msg.role == 'user' %}👤 User{% else %}🤖 Assistant{% endif %}</strong>
+                <span style="color: #666; font-size: 12px;">{{ msg.timestamp.strftime('%H:%M:%S') if msg.timestamp else '' }}</span>
+            </div>
+            
+            <div style="color: #e0e0e0; white-space: pre-wrap;">{{ msg.content }}</div>
+            
+            {% if msg.intent %}
+            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #333; font-size: 12px; color: #888;">
+                Intent: <span class="badge badge-info">{{ msg.intent.value }}</span>
+                Confidence: {{ (msg.confidence * 100)|round(0) }}%
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div style="text-align: center; color: #666; padding: 40px;">
+            Aucun message dans cette conversation
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

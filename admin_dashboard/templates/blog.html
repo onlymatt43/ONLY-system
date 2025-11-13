@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Blog Manager{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>📝 Blog Manager</h1>
+    <p>Gérez vos articles de blog</p>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Category</th>
+                <th>SEO Score</th>
+                <th>Views</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for post in posts %}
+            <tr>
+                <td>
+                    <strong>{{ post.title[:60] }}</strong><br>
+                    <small style="color: #666;">/blog/{{ post.slug[:40] }}</small>
+                </td>
+                <td><span class="badge badge-info">{{ post.category }}</span></td>
+                <td>
+                    <span style="color: {% if post.seo_score >= 8 %}#10b981{% elif post.seo_score >= 5 %}#f59e0b{% else %}#ef4444{% endif %}">
+                        {{ post.seo_score }}/10
+                    </span>
+                </td>
+                <td>{{ post.view_count }}</td>
+                <td>
+                    {% if post.published %}
+                        <span class="badge badge-success">✅ Published</span>
+                    {% else %}
+                        <span class="badge badge-warning">📝 Draft</span>
+                    {% endif %}
+                </td>
+                <td>{{ post.created_at[:10] }}</td>
+                <td>
+                    <form method="POST" action="{{ url_for('blog_publish', post_id=post.id) }}" style="display: inline;">
+                        <button type="submit" class="btn btn-small">
+                            {% if post.published %}Unpublish{% else %}Publish{% endif %}
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" style="text-align: center; color: #666; padding: 40px;">
+                    Aucun article de blog. Générez-en un!
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Generate new post -->
+<div class="card" style="max-width: 600px; margin-top: 40px;">
+    <h3 style="margin-bottom: 20px;">➕ Générer Nouveau Blog Post</h3>
+    
+    <form method="POST" action="{{ url_for('blog_generate') }}">
+        <div class="form-group">
+            <label class="form-label">Video ID</label>
+            <input type="text" name="video_id" class="form-input" required placeholder="vid_001">
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Video Title</label>
+            <input type="text" name="video_title" class="form-input" required placeholder="Montage Vidéo Pro en 10 Minutes">
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Video Description</label>
+            <textarea name="video_description" class="form-textarea" required placeholder="Dans ce tuto, je te montre..."></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Category</label>
+            <select name="category" class="form-select">
+                <option value="tutorial">Tutorial</option>
+                <option value="showcase">Showcase</option>
+                <option value="tips">Tips & Tricks</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Keywords (comma-separated)</label>
+            <input type="text" name="keywords" class="form-input" placeholder="montage, editing, premiere">
+        </div>
+        
+        <button type="submit" class="btn">✨ Générer Blog Post</button>
+    </form>
+</div>
+{% endblock %}

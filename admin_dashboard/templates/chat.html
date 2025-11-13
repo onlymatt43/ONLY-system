@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Consumer Chat{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>💬 Consumer Chat Sessions</h1>
+    <p>Conversations avec vos prospects</p>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Session ID</th>
+                <th>User</th>
+                <th>Stage</th>
+                <th>Messages</th>
+                <th>Started</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for session in sessions %}
+            <tr>
+                <td><code>{{ session.session_id[:8] }}...</code></td>
+                <td>{{ session.user_id }}</td>
+                <td><span class="badge badge-info">{{ session.stage }}</span></td>
+                <td>{{ session.total_messages }}</td>
+                <td>{{ session.started_at[:16] }}</td>
+                <td>
+                    {% if session.converted %}
+                        <span class="badge badge-success">✅ Converted</span>
+                    {% else %}
+                        <span class="badge badge-warning">🔄 Active</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('chat_detail', session_id=session.session_id) }}" class="btn btn-small">View</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" style="text-align: center; color: #666; padding: 40px;">
+                    Aucune conversation pour le moment
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Chat Test -->
+<div class="card" style="max-width: 600px; margin-top: 40px;">
+    <h3 style="margin-bottom: 20px;">🧪 Test Chatbot</h3>
+    
+    <div id="chat-messages" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px; padding: 16px; background: #0f0f0f; border-radius: 8px;">
+        <div style="color: #666; text-align: center;">Écris un message pour tester le chatbot...</div>
+    </div>
+    
+    <form id="chat-form">
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="chat-input" class="form-input" placeholder="Ton message..." style="flex: 1;">
+            <button type="submit" class="btn">Envoyer</button>
+        </div>
+    </form>
+    
+    <div id="chat-intent" style="margin-top: 12px; color: #666; font-size: 13px;"></div>
+</div>
+
+<script>
+let chatSessionId = null;
+
+document.getElementById('chat-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const input = document.getElementById('chat-input');
+    const message = input.value.trim();
+    if (!message) return;
+    
+    // Add user message to UI
+    addMessage('user', message);
+    input.value = '';
+    
+    // Send to API
+    try {
+        const response = await fetch('/api/chat/test', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                message: message,
+                session_id: chatSessionId
+            })
+        });
+        
+        const data = await response.json();
+        chatSessionId = data.session_id;
+        
+        // Add bot response
+        addMessage('assistant', data.response);
+        
+        // Show intent
+        document.getElementById('chat-intent').textContent = 
+            `Intent détecté: ${data.intent} (${data.confidence}% confidence)`;
+    } catch (error) {
+        console.error('Error:', error);
+        addMessage('system', '❌ Erreur de connexion');
+    }
+});
+
+function addMessage(role, content) {
+    const container = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    div.style.marginBottom = '12px';
+    div.style.padding = '12px';
+    div.style.borderRadius = '8px';
+    
+    if (role === 'user') {
+        div.style.background = '#2a2a2a';
+        div.style.marginLeft = '40px';
+        div.innerHTML = `<strong>You:</strong><br>${content}`;
+    } else if (role === 'assistant') {
+        div.style.background = '#1a3a2a';
+        div.style.marginRight = '40px';
+        div.innerHTML = `<strong>🤖 Bot:</strong><br>${content.replace(/\n/g, '<br>')}`;
+    } else {
+        div.style.background = '#3a1a1a';
+        div.style.textAlign = 'center';
+        div.textContent = content;
+    }
+    
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+</script>
+{% endblock %}

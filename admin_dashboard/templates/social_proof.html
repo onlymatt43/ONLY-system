@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Social Proof{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>👥 Social Proof</h1>
+    <p>Preuves sociales affichées sur le site</p>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Message</th>
+                <th>Value</th>
+                <th>Video</th>
+                <th>Verified</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for proof in proofs %}
+            <tr>
+                <td><span class="badge badge-info">{{ proof.proof_type.value }}</span></td>
+                <td>{{ proof.format_message() }}</td>
+                <td>{{ proof.value }}</td>
+                <td>{{ proof.video_id or 'Global' }}</td>
+                <td>
+                    {% if proof.is_verified %}
+                        <span class="badge badge-success">✅ Verified</span>
+                    {% else %}
+                        <span class="badge badge-warning">Unverified</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" style="text-align: center; color: #666; padding: 40px;">
+                    Aucune preuve sociale
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card" style="max-width: 600px; margin-top: 40px;">
+    <h3 style="margin-bottom: 20px;">➕ Ajouter Social Proof</h3>
+    
+    <form method="POST" action="{{ url_for('social_proof_create') }}">
+        <div class="form-group">
+            <label class="form-label">Type</label>
+            <select name="proof_type" class="form-select" required>
+                <option value="viewer_count">Viewer Count</option>
+                <option value="testimonial">Testimonial</option>
+                <option value="trending">Trending</option>
+                <option value="user_activity">User Activity</option>
+                <option value="success_stories">Success Stories</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Message</label>
+            <input type="text" name="message" class="form-input" placeholder="2543 avis">
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Value</label>
+            <input type="number" name="value" class="form-input" required placeholder="15000">
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Video ID (optionnel)</label>
+            <input type="text" name="video_id" class="form-input" placeholder="vid_001">
+        </div>
+        
+        <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" name="is_verified">
+                <span>Vérifié</span>
+            </label>
+        </div>
+        
+        <button type="submit" class="btn">Ajouter</button>
+    </form>
+</div>
+{% endblock %}

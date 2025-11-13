@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Create FOMO Campaign{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>➕ Créer Campagne FOMO</h1>
+    <p>Nouvelle campagne de rareté/urgence</p>
+</div>
+
+<div class="card" style="max-width: 600px;">
+    <form method="POST">
+        <div class="form-group">
+            <label class="form-label">Technique FOMO</label>
+            <select name="technique" class="form-select" required>
+                {% for technique in techniques %}
+                <option value="{{ technique }}">{{ technique }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Message</label>
+            <textarea name="message" class="form-textarea" required placeholder="🔥 FLASH SALE -50% sur toutes les vidéos premium!"></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Durée (heures)</label>
+            <input type="number" name="duration_hours" class="form-input" value="24" min="1" placeholder="24">
+            <small style="color: #666;">Laissez vide pour campagne permanente</small>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Audience Cible</label>
+            <select name="target_audience" class="form-select">
+                <option value="all">Tous</option>
+                <option value="new">Nouveaux visiteurs</option>
+                <option value="returning">Visiteurs récurrents</option>
+                <option value="vip">VIP uniquement</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Niveau d'Urgence (1-10)</label>
+            <input type="range" name="urgency_level" min="1" max="10" value="5" class="form-input" id="urgency-slider">
+            <div id="urgency-value" style="color: #ff6b35; margin-top: 8px;">5/10</div>
+        </div>
+        
+        <div style="margin-top: 30px;">
+            <button type="submit" class="btn">🔥 Créer Campagne</button>
+            <a href="{{ url_for('fomo_campaigns') }}" class="btn btn-secondary">Annuler</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    const slider = document.getElementById('urgency-slider');
+    const valueDisplay = document.getElementById('urgency-value');
+    
+    slider.addEventListener('input', function() {
+        valueDisplay.textContent = this.value + '/10';
+        if (this.value >= 8) {
+            valueDisplay.style.color = '#ef4444';
+        } else if (this.value >= 5) {
+            valueDisplay.style.color = '#f59e0b';
+        } else {
+            valueDisplay.style.color = '#10b981';
+        }
+    });
+</script>
+{% endblock %}
