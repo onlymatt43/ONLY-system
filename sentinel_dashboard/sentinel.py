@@ -1,18 +1,15 @@
 import os
-import sqlite3
 import time
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from dotenv import load_dotenv
 from jinja2 import Environment, FileSystemLoader
-import urllib.parse
 import requests
 
 load_dotenv()
 
 PORT = int(os.getenv("PORT", "5059"))
-GATEWAY_DB = os.getenv("GATEWAY_DB", "../gateway/gateway.db")
 REFRESH_SEC = int(os.getenv("REFRESH_SEC", "5"))
 
 CURATOR_URL = os.getenv("CURATOR_URL", "")
@@ -28,26 +25,18 @@ app = FastAPI(title="Sentinel Dashboard", version="1.0")
 
 
 # ---------- Helpers ----------
-def db_conn() -> Optional[sqlite3.Connection]:
-    if not os.path.exists(GATEWAY_DB):
-        return None
-    # lecture seule via URI
-    uri = f"file:{urllib.parse.quote(GATEWAY_DB)}?mode=ro"
-    conn = sqlite3.connect(uri, uri=True, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
 def fetch_jobs(limit: int = 100) -> List[Dict[str, Any]]:
-    conn = db_conn()
-    if not conn:
+    """Fetch jobs from Gateway API instead of direct DB access"""
+    try:
+        r = requests.get(f"{GATEWAY_URL}/jobs", params={"limit": limit}, timeout=5)
+        r.raise_for_status()
+        data = r.json()
+        if isinstance(data, list):
+            return data
         return []
-    with conn:
-        rows = conn.execute(
-            "SELECT * FROM jobs ORDER BY id DESC LIMIT ?",
-            (limit,)
-        ).fetchall()
-        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"[Sentinel] Error fetching jobs: {e}")
+        return []
 
 
 def ping(url: str, timeout: float = 2.5) -> Dict[str, Any]:
@@ -77,12 +66,11 @@ def dashboard(request: Request, limit: int = 100):
     tmpl = env.get_template("index.html")
     jobs = fetch_jobs(limit=limit)
     services = service_status_map()
-    has_db = os.path.exists(GATEWAY_DB)
     
     html = tmpl.render(
         refresh=REFRESH_SEC,
-        has_db=has_db,
-        db_path=os.path.abspath(GATEWAY_DB),
+        has_db=True,  # Always True with API access
+        db_path="Gateway API",
         jobs=jobs,
         services=services
     )
