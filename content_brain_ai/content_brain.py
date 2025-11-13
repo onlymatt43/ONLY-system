@@ -7,6 +7,7 @@ import os
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 from video_analyzer import VideoAnalyzer, BatchVideoAnalyzer
+from style_learner import StyleAnalyzerAI, StyleProfile
 from dataclasses import asdict
 
 load_dotenv()
@@ -21,6 +22,7 @@ app = Flask(__name__)
 # Initialize analyzers
 video_analyzer = VideoAnalyzer(curator_url=CURATOR_URL)
 batch_analyzer = BatchVideoAnalyzer(analyzer=video_analyzer)
+style_analyzer = StyleAnalyzerAI()
 
 
 # ==================== ROUTES ====================
@@ -297,14 +299,244 @@ def get_stats():
         }), 500
 
 
+# ==================== STYLE LEARNER ROUTES ====================
+
+@app.route("/style/train", methods=["POST"])
+def train_style():
+    """
+    Entraîne le Style Learner avec tes posts
+    
+    POST /style/train
+    Body: {
+        "posts": [
+            {"text": "🔥 OK LES GARS...", "platform": "twitter"},
+            {"text": "💡 Check cette technique", "platform": "instagram"}
+        ]
+    }
+    
+    Returns:
+        Confirmation training + nombre de posts
+    """
+    data = request.json or {}
+    posts = data.get("posts", [])
+    
+    if not posts:
+        return jsonify({
+            "ok": False,
+            "error": "No posts provided. Include 'posts' array in body."
+        }), 400
+    
+    try:
+        # Ajoute posts à l'entraînement
+        style_analyzer.add_training_posts_batch(posts)
+        
+        return jsonify({
+            "ok": True,
+            "message": "Training posts added successfully",
+            "total_training_posts": len(style_analyzer.training_posts)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "ok": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route("/style/analyze", methods=["POST"])
+def analyze_style():
+    """
+    Analyse tous les posts training et génère StyleProfile
+    
+    POST /style/analyze
+    
+    Returns:
+        StyleProfile complet
+    """
+    try:
+        if not style_analyzer.training_posts:
+            return jsonify({
+                "ok": False,
+                "error": "No training posts. Use /style/train first."
+            }), 400
+        
+        # Analyse et génère profile
+        profile = style_analyzer.analyze_style()
+        
+        return jsonify({
+            "ok": True,
+            "style_profile": asdict(profile),
+            "message": f"Style analyzed from {profile.analyzed_posts_count} posts"
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "ok": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route("/style/profile", methods=["GET"])
+def get_style_profile():
+    """
+    Récupère StyleProfile actuel
+    
+    GET /style/profile
+    
+    Returns:
+        StyleProfile ou error si pas encore analysé
+    """
+    if not style_analyzer.style_profile:
+        return jsonify({
+            "ok": False,
+            "error": "Style not analyzed yet. Use /style/train then /style/analyze."
+        }), 404
+    
+    return jsonify({
+        "ok": True,
+        "style_profile": asdict(style_analyzer.style_profile)
+    })
+
+
+@app.route("/style/generate", methods=["POST"])
+def generate_styled_post():
+    """
+    Génère post dans TON style pour une vidéo
+    
+    POST /style/generate
+    Body: {
+        "video_id": "123",
+        "platform": "twitter"
+    }
+    
+    Returns:
+        Post généré + style match score
+    """
+    data = request.json or {}
+    video_id = data.get("video_id")
+    platform = data.get("platform", "twitter")
+    
+    if not video_id:
+        return jsonify({
+            "ok": False,
+            "error": "video_id required"
+        }), 400
+    
+    try:
+        if not style_analyzer.style_profile:
+            return jsonify({
+                "ok": False,
+                "error": "Style not trained. Use /style/train and /style/analyze first."
+            }), 400
+        
+        # Analyse vidéo
+        insights = video_analyzer.analyze_video(video_id)
+        insights_dict = asdict(insights)
+        
+        # Génère post dans ton style
+        generated_post = style_analyzer.generate_post(
+            video_insights=insights_dict,
+            platform=platform
+        )
+        
+        # Valide match
+        match_score = style_analyzer.validate_style_match(generated_post)
+        
+        return jsonify({
+            "ok": True,
+            "video_id": video_id,
+            "platform": platform,
+            "generated_post": generated_post,
+            "style_match_score": round(match_score, 2),
+            "video_insights": {
+                "engagement_score": insights.engagement_score,
+                "viral_potential": insights.viral_potential,
+                "content_type": insights.content_type
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "ok": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route("/style/validate", methods=["POST"])
+def validate_post_style():
+    """
+    Valide si un post match ton style
+    
+    POST /style/validate
+    Body: {
+        "post_text": "🔥 Check cette vidéo insane..."
+    }
+    
+    Returns:
+        Score 0-1
+    """
+    data = request.json or {}
+    post_text = data.get("post_text", "")
+    
+    if not post_text:
+        return jsonify({
+            "ok": False,
+            "error": "post_text required"
+        }), 400
+    
+    try:
+        if not style_analyzer.style_profile:
+            return jsonify({
+                "ok": False,
+                "error": "Style not trained. Use /style/train and /style/analyze first."
+            }), 400
+        
+        match_score = style_analyzer.validate_style_match(post_text)
+        
+        # Interprétation
+        if match_score >= 0.8:
+            interpretation = "Excellent - sounds exactly like you"
+        elif match_score >= 0.6:
+            interpretation = "Good - minor adjustments needed"
+        else:
+            interpretation = "Poor - doesn't match your style"
+        
+        return jsonify({
+            "ok": True,
+            "post_text": post_text,
+            "style_match_score": round(match_score, 2),
+            "interpretation": interpretation
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "ok": False,
+            "error": str(e)
+        }), 500
+
+
 # ==================== MAIN ====================
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("🧠 Content Brain AI - Video Analyzer")
+    print("🧠 Content Brain AI - Video Analyzer + Style Learner")
     print("=" * 60)
     print(f"Port: {PORT}")
     print(f"Curator URL: {CURATOR_URL}")
+    print("\n📊 Endpoints disponibles:")
+    print("  Video Analysis:")
+    print("    POST /analyze/<video_id>")
+    print("    POST /analyze/batch")
+    print("    GET  /top-performers")
+    print("    GET  /preview/<video_id>/<platform>")
+    print("    GET  /hooks/<video_id>")
+    print("    GET  /stats")
+    print("\n  Style Learner:")
+    print("    POST /style/train")
+    print("    POST /style/analyze")
+    print("    GET  /style/profile")
+    print("    POST /style/generate")
+    print("    POST /style/validate")
     print("=" * 60)
     
     app.run(
