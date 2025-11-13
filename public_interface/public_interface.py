@@ -190,21 +190,11 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
     has_access = check_video_access(video, token_data)
     
     if not has_access:
-        # Redirect to login or show paywall
-        if video.get("access_level") == "vip":
-            return templates.TemplateResponse("paywall.html", {
-                "request": request,
-                "video": video,
-                "required_level": "VIP",
-                "message": "This content requires a VIP subscription"
-            })
-        elif video.get("access_level") == "ppv":
-            return templates.TemplateResponse("paywall.html", {
-                "request": request,
-                "video": video,
-                "required_level": "PPV",
-                "message": "Purchase this video to watch"
-            })
+        # SECURITY: Don't render watch.html with iframe if no access
+        # Redirect to login instead of showing paywall with video metadata
+        if video.get("access_level") in ["vip", "ppv"]:
+            # Redirect to login page with return URL
+            return RedirectResponse(url=f"/login?next=/watch/{video_id}", status_code=303)
     
     # Fetch related videos
     related_videos = fetch_videos(limit=20)
