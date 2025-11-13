@@ -26,8 +26,10 @@ def db():
     """Return Turso client"""
     global _client
     if not _client:
-        # Force HTTP mode instead of WebSocket
-        url = TURSO_URL.replace("libsql://", "https://")
+        # Force HTTPS mode instead of WebSocket
+        url = TURSO_URL
+        if url and url.startswith("libsql://"):
+            url = url.replace("libsql://", "https://")
         _client = create_client_sync(url=url, auth_token=TURSO_TOKEN)
     return _client
 
