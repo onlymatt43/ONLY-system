@@ -18,10 +18,7 @@ REFRESH_SEC = int(os.getenv("REFRESH_SEC", "5"))
 MONITOR_INTERVAL = int(os.getenv("MONITOR_INTERVAL_SEC", "30"))  # AI monitoring cycle
 
 CURATOR_URL = os.getenv("CURATOR_URL", "https://only-curator.onrender.com/")
-NARRATOR_URL = os.getenv("NARRATOR_URL", "https://only-narrator.onrender.com/")
-BUILDER_URL = os.getenv("BUILDER_URL", "https://only-builder.onrender.com/")
 GATEWAY_URL = os.getenv("GATEWAY_URL", "https://only-gateway.onrender.com/")
-PUBLISHER_URL = os.getenv("PUBLISHER_URL", "https://only-publisher.onrender.com/")
 MONETIZER_URL = os.getenv("MONETIZER_URL", "https://only-monetizer.onrender.com/")
 PUBLIC_URL = os.getenv("PUBLIC_URL", "https://only-public.onrender.com/")
 
@@ -30,12 +27,9 @@ env = Environment(loader=FileSystemLoader(TEMPLATE_DIR), autoescape=True)
 
 app = FastAPI(title="Sentinel AI Dashboard", version="2.0")
 
-# Initialize Sentinel AI
+# Initialize Sentinel AI - ONLY Core Services (WordPress pipeline removed)
 SERVICES_CONFIG = {
     "Gateway": GATEWAY_URL,
-    "Narrator": NARRATOR_URL,
-    "Builder": BUILDER_URL,
-    "Publisher": PUBLISHER_URL,
     "Curator": CURATOR_URL,
     "Monetizer": MONETIZER_URL,
     "Public": PUBLIC_URL
@@ -86,12 +80,12 @@ def ping(url: str, timeout: float = 2.5) -> Dict[str, Any]:
 
 
 def service_status_map() -> Dict[str, Dict[str, Any]]:
+    """Status map for ONLY core services (WordPress pipeline removed)"""
     return {
-        "Curator": ping(CURATOR_URL),
-        "Narrator": ping(NARRATOR_URL),
-        "Builder": ping(BUILDER_URL),
         "Gateway": ping(GATEWAY_URL),
-        "Publisher": ping(PUBLISHER_URL),
+        "Curator": ping(CURATOR_URL),
+        "Monetizer": ping(MONETIZER_URL),
+        "Public": ping(PUBLIC_URL),
     }
 
 
