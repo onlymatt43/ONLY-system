@@ -1,0 +1,90 @@
+# Render.com Deployment Configuration
+# All services pour le système marketing complet
+
+services:
+  # Content Brain AI (Phase 1)
+  - type: web
+    name: only-content-brain
+    env: python
+    region: frankfurt
+    plan: starter
+    buildCommand: pip install -r content_brain_ai/requirements.txt
+    startCommand: python content_brain_ai/content_brain.py
+    envVars:
+      - key: PORT
+        value: 5070
+      - key: CURATOR_URL
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    healthCheckPath: /health
+
+  # Content Scheduler (Phase 1)
+  - type: web
+    name: only-content-scheduler
+    env: python
+    region: frankfurt
+    plan: starter
+    buildCommand: pip install -r content_scheduler/requirements.txt
+    startCommand: python content_scheduler/scheduler_api.py
+    envVars:
+      - key: PORT
+        value: 5071
+      - key: CONTENT_BRAIN_URL
+        sync: false
+      - key: SCHEDULER_DB_PATH
+        value: /opt/render/project/src/content_scheduler.db
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    healthCheckPath: /health
+
+  # Sales & Retention Engine (Phase 2)
+  - type: web
+    name: only-sales-engine
+    env: python
+    region: frankfurt
+    plan: starter
+    buildCommand: pip install -r sales_engine/requirements.txt
+    startCommand: python sales_engine/sales_api.py
+    envVars:
+      - key: PORT
+        value: 5072
+      - key: SALES_DB_PATH
+        value: /opt/render/project/src/sales_engine.db
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    healthCheckPath: /health
+
+  # Consumer Chat System (Phase 2)
+  - type: web
+    name: only-consumer-chat
+    env: python
+    region: frankfurt
+    plan: starter
+    buildCommand: pip install -r consumer_chat/requirements.txt
+    startCommand: python consumer_chat/chat_api.py
+    envVars:
+      - key: PORT
+        value: 5073
+      - key: CHAT_DB_PATH
+        value: /opt/render/project/src/consumer_chat.db
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    healthCheckPath: /health
+
+  # Blog & Homepage Engine (Phase 2)
+  - type: web
+    name: only-blog-engine
+    env: python
+    region: frankfurt
+    plan: starter
+    buildCommand: pip install -r blog_engine/requirements.txt
+    startCommand: python blog_engine/blog_api.py
+    envVars:
+      - key: PORT
+        value: 5074
+      - key: BLOG_DB_PATH
+        value: /opt/render/project/src/blog_engine.db
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    healthCheckPath: /health

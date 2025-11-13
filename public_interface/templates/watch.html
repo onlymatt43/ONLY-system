@@ -37,7 +37,7 @@
     <div class="watch-container">
         <div class="player-wrapper">
             <video id="videoPlayer" class="video-player" controls autoplay>
-                <source src="https://{{ video.cdn_hostname }}/{{ video.video_id }}/playlist.m3u8" type="application/x-mpegURL">
+                <source src="{{ video.video_url }}" type="application/x-mpegURL">
                 Your browser does not support HLS video playback.
             </video>
         </div>
@@ -104,7 +104,7 @@
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script>
         const video = document.getElementById('videoPlayer');
-        const videoSrc = 'https://{{ video.cdn_hostname }}/{{ video.video_id }}/playlist.m3u8';
+        const videoSrc = '{{ video.video_url }}';
         
         if (Hls.isSupported()) {
             const hls = new Hls();
