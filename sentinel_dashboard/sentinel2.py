@@ -24,6 +24,14 @@ from dotenv import load_dotenv
 import threading
 from collections import defaultdict
 
+# Import E2E tester (optionnel - nécessite playwright)
+try:
+    from e2e_tester import E2ETester
+    E2E_AVAILABLE = True
+except ImportError:
+    E2E_AVAILABLE = False
+    print("[Sentinel] E2E testing not available (install: pip install playwright && playwright install)")
+
 load_dotenv()
 
 PORT = int(os.getenv("PORT", "5059"))
@@ -447,6 +455,53 @@ async def dashboard(request: Request):
 def get_system_status():
     """Retourne l'état complet du système"""
     return JSONResponse(system_status)
+
+@app.get("/api/e2e/test")
+def run_e2e_tests():
+    """Lance les tests E2E sur Public Interface"""
+    if not E2E_AVAILABLE:
+        return JSONResponse({
+            "error": "E2E testing not available",
+            "install": "pip install playwright && playwright install chromium"
+        }, status_code=503)
+    
+    try:
+        tester = E2ETester(
+            public_url=PUBLIC_URL,
+            curator_url=CURATOR_URL
+        )
+        results = tester.run_all_tests()
+        
+        # Convertit en dict sérialisable
+        results_dict = {
+            name: {
+                "test_name": r.test_name,
+                "passed": r.passed,
+                "error_message": r.error_message,
+                "screenshot_path": r.screenshot_path,
+                "duration_ms": r.duration_ms,
+                "timestamp": r.timestamp
+            }
+            for name, r in results.items()
+        }
+        
+        passed_count = sum(1 for r in results.values() if r.passed)
+        total_count = len(results)
+        
+        return JSONResponse({
+            "summary": {
+                "passed": passed_count,
+                "failed": total_count - passed_count,
+                "total": total_count,
+                "success_rate": (passed_count / total_count * 100) if total_count > 0 else 0
+            },
+            "results": results_dict
+        })
+        
+    except Exception as e:
+        return JSONResponse({
+            "error": str(e)
+        }, status_code=500)
 
 @app.get("/api/incidents")
 def get_incidents(open_only: bool = True):
