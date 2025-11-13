@@ -265,13 +265,20 @@ def unlock_redirect(token: str):
 # Vérification (à appeler depuis ton plugin WP)
 @app.get("/verify")
 def verify(token: str):
+    # Try to parse as long token (base64 encoded)
     parsed = parse_token(token)
-    if not parsed:
-        return JSONResponse({"ok":False, "reason":"invalid_token"}, status_code=400)
+    
     conn = db()
     c = conn.cursor()
-    # Try to find by token (long hash) OR by code (short readable)
-    row = c.execute("SELECT * FROM tokens WHERE token = ? OR code = ?", (token, token)).fetchone()
+    
+    # If parsed successfully, it's a long token - search by token
+    # If not parsed, it might be a short code - search by code OR token
+    if parsed:
+        row = c.execute("SELECT * FROM tokens WHERE token = ?", (token,)).fetchone()
+    else:
+        # Could be a short code like OM43-XXXX-XXXX
+        row = c.execute("SELECT * FROM tokens WHERE code = ? OR token = ?", (token, token)).fetchone()
+    
     conn.close()
     if not row:
         return JSONResponse({"ok":False, "reason":"unknown"}, status_code=404)
