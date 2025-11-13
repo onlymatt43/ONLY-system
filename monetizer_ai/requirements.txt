@@ -5,3 +5,4 @@ qrcode
 pillow
 python-slugify
 python-dateutil
+libsql-client
