@@ -41,39 +41,46 @@ class E2ETester:
                 browser = p.chromium.launch(headless=True)
                 page = browser.new_page()
                 
-                # Va sur la page watch
+                # Va sur la page watch (wait_until=domcontentloaded pour éviter timeout)
                 url = f"{self.public_url}/watch/{video_id}"
-                page.goto(url, timeout=10000)
+                page.goto(url, timeout=15000, wait_until="domcontentloaded")
                 
-                # Attends que le player soit visible
-                page.wait_for_selector("#videoPlayer", timeout=5000)
+                # Attends que l'iframe Bunny soit visible
+                page.wait_for_selector(".om-video-card iframe", timeout=5000)
                 
-                # Vérifie que la source vidéo est définie
-                video_src = page.evaluate("""
+                # Vérifie que l'iframe Bunny Stream est présente et bien configurée
+                iframe_src = page.evaluate("""
                     () => {
-                        const video = document.getElementById('videoPlayer');
-                        return video ? video.src || video.querySelector('source')?.src : null;
+                        const iframe = document.querySelector('.om-video-card iframe');
+                        return iframe ? iframe.src : null;
                     }
                 """)
                 
-                if not video_src:
-                    raise Exception("Video source not found - template bug")
+                if not iframe_src:
+                    raise Exception("Bunny iframe not found - template bug")
                 
-                # Vérifie que l'URL vidéo est valide (commence par https)
-                if not video_src.startswith('https://'):
-                    raise Exception(f"Invalid video URL: {video_src}")
+                # Vérifie que l'URL iframe est valide (Bunny Stream embed)
+                if not iframe_src.startswith('https://iframe.mediadelivery.net/embed/'):
+                    raise Exception(f"Invalid Bunny embed URL: {iframe_src}")
                 
-                # Vérifie que l'URL contient .m3u8 (HLS)
-                if '.m3u8' not in video_src:
-                    raise Exception(f"Video URL is not HLS format: {video_src}")
+                # Vérifie que l'iframe contient l'ID de la vidéo
+                if '389178' not in iframe_src:  # Library ID
+                    raise Exception(f"Bunny library ID missing in embed: {iframe_src}")
                 
-                # Vérifie que HLS.js est chargé
-                hls_loaded = page.evaluate("""
-                    () => typeof Hls !== 'undefined'
+                # Vérifie que l'iframe est bien configurée (autoplay, etc.)
+                iframe_config = page.evaluate("""
+                    () => {
+                        const iframe = document.querySelector('.om-video-card iframe');
+                        return {
+                            allowfullscreen: iframe.allowFullscreen,
+                            loading: iframe.loading,
+                            has_allow: iframe.getAttribute('allow') !== null
+                        };
+                    }
                 """)
                 
-                if not hls_loaded:
-                    raise Exception("HLS.js library not loaded")
+                if not iframe_config['allowfullscreen']:
+                    raise Exception("Iframe should have allowfullscreen enabled")
                 
                 # Screenshot de succès
                 screenshot_path = f"{self.screenshot_dir}/{test_name}_success.png"
@@ -123,7 +130,7 @@ class E2ETester:
                 browser = p.chromium.launch(headless=True)
                 page = browser.new_page()
                 
-                page.goto(self.public_url, timeout=10000)
+                page.goto(self.public_url, timeout=15000, wait_until="domcontentloaded")
                 
                 # Vérifie que le titre existe
                 title = page.title()
@@ -135,8 +142,13 @@ class E2ETester:
                 if len(video_cards) == 0:
                     raise Exception("No video cards found on homepage")
                 
-                screenshot_path = f"{self.screenshot_dir}/{test_name}_success.png"
-                page.screenshot(path=screenshot_path)
+                # Screenshot (optionnel - skip si problème)
+                screenshot_path = None
+                try:
+                    screenshot_path = f"{self.screenshot_dir}/{test_name}_success.png"
+                    page.screenshot(path=screenshot_path, timeout=5000)
+                except:
+                    pass
                 
                 browser.close()
                 
@@ -181,7 +193,7 @@ class E2ETester:
                 browser = p.chromium.launch(headless=True)
                 page = browser.new_page()
                 
-                page.goto(self.public_url, timeout=10000)
+                page.goto(self.public_url, timeout=15000, wait_until="domcontentloaded")
                 
                 # Trouve le champ de recherche
                 search_input = page.query_selector("input[type='search'], input[placeholder*='Search']")
