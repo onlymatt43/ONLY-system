@@ -1,144 +1,136 @@
-# 🎬 ONLY - Système Netflix Modulaire
+# 🎬 ONLY - Plateforme Vidéo Premium
 
-Système de publication automatisée de contenu vidéo, inspiré de Netflix, avec architecture en micro-services indépendants.
+Plateforme de contenu vidéo premium avec modèle freemium : previews publiques gratuits et vidéos complètes pour abonnés.
 
 ## 🎯 Philosophie
 
-- **Modulaire** : chaque bloc est un service indépendant
-- **Autonome** : minimum de dépendances externes (SaaS)
-- **Low-cost** : gratuit ou très économique
-- **Automatisé** : IA et bots orchestrent tout
-- **Scalable** : chaque bloc peut être dupliqué/remplacé
+- **Freemium** : previews publics gratuits + contenu premium payant
+- **Modulaire** : chaque service est indépendant et scalable
+- **Sécurisé** : authentification par tokens, vidéos protégées
+- **Low-cost** : Bunny CDN + Render.com free tier
+- **Automatisé** : gestion de contenu simplifiée
 
 ## 🧩 Architecture
 
 ```
-                    ┌─────────────────┐
-                    │  Web Interface  │  (Dashboard + UI)
-                    └────────┬────────┘
+                    ┌──────────────────┐
+                    │ Public Interface │  (Site public)
+                    └────────┬─────────┘
                              │
         ┌────────────────────┼────────────────────┐
         │                    │                    │
   ┌─────▼─────┐       ┌──────▼──────┐     ┌──────▼──────┐
-  │  Curator  │       │   Gateway   │     │  Monetizer  │
-  │    Bot    │──────>│ (Queue+DB)  │<────│     AI      │
-  └───────────┘       └──────┬──────┘     └─────────────┘
-                             │
-                    ┌────────┼────────┐
-                    │        │        │
-             ┌──────▼──┐  ┌──▼────┐  ┌▼──────────┐
-             │ Narrator│  │Publish│  │ Sentinel  │
-             │   AI    │  │er AI  │  │ Dashboard │
-             └─────────┘  └───────┘  └───────────┘
+  │  Curator  │       │  Monetizer  │     │  Sentinel   │
+  │    Bot    │       │     AI      │     │     AI      │
+  └───────────┘       └─────────────┘     └─────────────┘
+       │                     │                    │
+       │              (Token Auth)         (Monitoring)
+       │                     │                    │
+  ┌────▼──────────────────────▼────────────────────▼────┐
+  │              Bunny Stream CDN                        │
+  │  ┌──────────────────┐  ┌──────────────────┐         │
+  │  │  Public Library  │  │  Private Library │         │
+  │  │  (14 previews)   │  │  (121 videos)    │         │
+  │  │  Free access     │  │  Token required  │         │
+  │  └──────────────────┘  └──────────────────┘         │
+  └──────────────────────────────────────────────────────┘
 ```
 
-## 📦 Blocs (Micro-services)
+## 📦 Services Déployés
 
-| Bloc | Rôle | Port | Dépendances |
-|------|------|------|-------------|
-| **Web Interface** | Dashboard + Gestion complète | 5000 | Proxy vers tous les services |
-| **Curator Bot** | Surveillance de nouveaux médias | 5054 | watchdog |
-| **Narrator AI** | Analyse & métadonnées (IA) | 5056 | ffprobe, Ollama/OpenAI (opt.) |
-| **Gateway** | Orchestrateur central + queue | 5055 | SQLite |
-| **Publisher AI** | Publication réseaux sociaux | 5058 | APIs X/IG/YT (opt.) |
-| **Monetizer AI** | Gestion tokens + QR codes | 5060 | SQLite |
-| **Sentinel Dashboard** | Supervision temps réel | 5059 | lecture seule |
+| Service | Rôle | URL Production | Status |
+|---------|------|----------------|--------|
+| **Public Interface** | Site web public + previews | https://only-public.onrender.com | ✅ Live |
+| **Curator Bot** | Gestion vidéos Bunny (dual library) | https://only-curator.onrender.com | ✅ Live |
+| **Monetizer AI** | Authentification tokens + QR codes | https://only-monetizer.onrender.com | ✅ Live |
+| **Sentinel AI** | Monitoring système + alertes | https://only-sentinel.onrender.com | ✅ Live |
 
-**Note:** Builder Bot (WordPress) n'est plus nécessaire avec Web Interface.
+## 🎥 Bunny Stream - Architecture Dual Library
 
-## 🚀 Démarrage rapide
+### Public Library (420867)
+- **14 vidéos** - Previews gratuits pour tous
+- **CDN**: `vz-9cf89254-609.b-cdn.net`
+- **Accès**: Public, pas d'authentification
+- **Usage**: Partage réseaux sociaux, découverte contenu
+
+### Private Library (389178)
+- **121 vidéos** - Contenu premium complet
+- **CDN**: `vz-a3ab0733-842.b-cdn.net`
+- **Accès**: Token requis, URL signées
+- **Sécurité**: Token authentication ON, direct URL access blocked
+
+## 🚀 Développement Local
 
 ### 1. Prérequis
 ```bash
 # Python 3.9+
 python3 --version
 
-# ffmpeg (pour Narrator AI)
-brew install ffmpeg  # macOS
+# Environnement virtuel
+python3 -m venv .venv
+source .venv/bin/activate  # macOS/Linux
 ```
 
-### 2. Lancer tous les services
-
-Chaque bloc dans son propre terminal :
+### 2. Lancer les services essentiels
 
 ```bash
-# Terminal 1 - Gateway (démarrer en premier)
-cd gateway
-pip install -r requirements.txt
-cp .env.example .env
-python3 gateway.py
-
-# Terminal 2 - Narrator AI
-cd narrator_ai
-pip install -r requirements.txt
-cp .env.example .env
-python3 narrator_ai.py
-
-# Terminal 3 - Publisher AI
-cd publisher_ai
-pip install -r requirements.txt
-cp .env.example .env
-# Éditer .env avec tokens réseaux sociaux (optionnel)
-python3 publisher_ai.py
-
-# Terminal 4 - Monetizer AI
-cd monetizer_ai
-pip install -r requirements.txt
-cp .env.example .env
-python3 monetizer_ai.py
-
-# Terminal 5 - Web Interface (interface principale)
-cd web_interface
-pip install -r requirements.txt
-cp .env.example .env
-python3 web_interface.py
-
-# Terminal 6 - Curator Bot (optionnel - surveillance fichiers)
+# Terminal 1 - Curator Bot
 cd curator_bot
 pip install -r requirements.txt
 cp .env.example .env
-python3 curator_bot.py
+# Éditer .env avec tes clés Bunny
+python curator_bot.py
 
-# Terminal 7 - Sentinel Dashboard (monitoring avancé)
-cd sentinel_dashboard
+# Terminal 2 - Monetizer AI
+cd monetizer_ai
 pip install -r requirements.txt
 cp .env.example .env
-python3 sentinel.py
+python monetizer_ai.py
+
+# Terminal 3 - Public Interface
+cd public_interface
+pip install -r requirements.txt
+cp .env.example .env
+python public_interface.py
+
+# Terminal 4 - Sentinel AI (monitoring)
+cd sentinel_ai
+pip install -r requirements.txt
+cp .env.example .env
+python sentinel.py
 ```
 
 ### 3. Accéder à l'interface
 
-Ouvre **http://localhost:5000** dans ton navigateur (Web Interface principale).
+- **Site public** : http://localhost:5062
+- **Monitoring** : http://localhost:10000
+- **API Curator** : http://localhost:5061
+- **API Monetizer** : http://localhost:5060
 
-Alternative : **http://localhost:5059** pour Sentinel Dashboard (monitoring).
+## 🔄 Workflow Freemium
 
-## 🔄 Workflow complet
+1. **Visiteur arrive sur le site** → voit les previews publics gratuits
+2. **Clique sur "Watch Full Video"** → redirigé vers authentification
+3. **Entre son token** → Monetizer valide l'accès
+4. **Token valide** → accès au player avec vidéo privée (URL signée)
+5. **Token invalide/expiré** → reste sur previews publics
+6. **Partage social** → previews publics partagés automatiquement
 
-1. **Upload via Web Interface** → créer un job manuellement
-   OU **Curator Bot** détecte une nouvelle vidéo dans `/videos/input`
-2. Envoie événement au **Gateway** → job créé (status: `queued`)
-3. **Gateway** appelle **Narrator AI** → génère titre, description, tags
-4. **Gateway** appelle **Publisher AI** → publie sur réseaux + notif
-5. Job passe en status `done` avec lien du post
-6. **Monetizer AI** peut générer un token d'accès avec QR code
-7. **Web Interface** & **Sentinel Dashboard** affichent tout en temps réel
+## ⚙️ Configuration
 
-## ⚙️ Configuration minimale
-
-### Web Interface (.env)
+### Curator Bot (.env)
 ```env
-PORT=5000
-GATEWAY_URL=http://localhost:5055
-NARRATOR_URL=http://localhost:5056
-PUBLISHER_URL=http://localhost:5058
-MONETIZER_URL=http://localhost:5060
-```
+PORT=5061
 
-### Gateway (.env)
-```env
-PORT=5055
-NARRATOR_URL=http://localhost:5056/describe
-PUBLISHER_URL=http://localhost:5058/notify
+# Private Library (vidéos complètes)
+BUNNY_PRIVATE_API_KEY=ta-cle-api-private
+BUNNY_PRIVATE_LIBRARY_ID=389178
+BUNNY_PRIVATE_CDN_HOSTNAME=vz-a3ab0733-842.b-cdn.net
+
+# Public Library (previews gratuits)
+BUNNY_PUBLIC_API_KEY=ta-cle-api-public
+BUNNY_PUBLIC_LIBRARY_ID=420867
+BUNNY_PUBLIC_CDN_HOSTNAME=vz-9cf89254-609.b-cdn.net
 ```
 
 ### Monetizer AI (.env)
@@ -146,153 +138,159 @@ PUBLISHER_URL=http://localhost:5058/notify
 PORT=5060
 SECRET_KEY=ton-secret-super-long-et-unique
 CODE_PREFIX=OM43
+TOKEN_EXPIRY_DAYS=365
 ```
 
-### Publisher AI (.env)
-Tous les jetons sont **optionnels** :
+### Public Interface (.env)
 ```env
-# Email
-SMTP_SERVER=smtp.gmail.com
-SMTP_USER=ton@email.com
-SMTP_PASS=motdepasse
-
-# Telegram
-TELEGRAM_BOT_TOKEN=123456:ABC...
-TELEGRAM_CHAT_ID=123456789
-
-# X/Twitter
-X_BEARER_USER=eyJhbGciOiJ...
-
-# Instagram (Business requis)
-IG_USER_ID=123456789
-IG_ACCESS_TOKEN=EAAG...
-
-# YouTube
-YT_CLIENT_SECRETS=./client_secret.json
+PORT=5062
+CURATOR_URL=http://localhost:5061
+MONETIZER_URL=http://localhost:5060
+SITE_NAME=ONLY
 ```
 
-## 📊 Monitoring
+### Sentinel AI (.env)
+```env
+PORT=10000
+CURATOR_URL=http://localhost:5061
+MONETIZER_URL=http://localhost:5060
+PUBLIC_URL=http://localhost:5062
+MONITOR_INTERVAL_SEC=30
+```
 
-- **Web Interface** : http://localhost:5000 (interface principale)
-- **Sentinel Dashboard** : http://localhost:5059 (monitoring avancé)
-- **Gateway API** : http://localhost:5055/jobs
-- **Services status** : http://localhost:5000/api/status
+## 📊 APIs & Monitoring
 
-## 🔧 Indépendance
-
-### ✅ Ce que tu possèdes
-- Code source complet
-- Base de données locale (SQLite)
-- Logs en local
-- Aucun SaaS obligatoire
-
-### ❌ Ce qui n'est PAS requis
-- ~~WordPress~~ : remplacé par Web Interface
-- Metricool
-- Make.com / Zapier
-- Services cloud propriétaires
-- Base de données externe (PostgreSQL, MySQL)
-
-### 📡 Dépendances externes (optionnelles)
-- **Ollama / OpenAI** : pour IA (fallback local disponible)
-- **X / Instagram / YouTube** : pour réseaux (tous optionnels)
-- **SMTP** : pour notifications email (optionnel)
-
-## 🧱 Avantages de l'architecture
-
-### Modularité
-Chaque bloc peut être :
-- Remplacé par un autre service
-- Redémarré indépendamment
-- Dupliqué pour load balancing
-- Développé dans un autre langage
-
-### Scalabilité
-- Ajoute autant de Curators que nécessaire
-- Multiple Builders pour différents sites
-- Publishers pour différents comptes
-
-### Robustesse
-- Si un bloc tombe : les autres continuent
-- Gateway garde la queue en SQLite
-- Retry automatique sur erreurs réseau
-- Idempotence : pas de double traitement
-
-## 📚 Documentation détaillée
-
-### Blocs principaux
-- [Web Interface](web_interface/README.md) - **Interface utilisateur complète**
-- [Gateway](gateway/README.md) - **Orchestrateur central**
-- [Narrator AI](narrator_ai/README.md) - Analyse vidéo + IA
-- [Publisher AI](publisher_ai/README.md) - Publication réseaux sociaux
-- [Monetizer AI](monetizer_ai/README.md) - Gestion tokens d'accès
-
-### Blocs secondaires
-- [Curator Bot](curator_bot/README.md) - Surveillance fichiers (optionnel)
-- [Sentinel Dashboard](sentinel_dashboard/README.md) - Monitoring avancé
-- ~~[Builder Bot](builder_bot/README.md)~~ - WordPress (deprecated)
-
-## 🧪 Test rapide
-
+### Curator Bot API
 ```bash
-# Démarre tous les services puis :
-cd curator_bot
+# Sync toutes les vidéos depuis Bunny
+curl -X POST http://localhost:5061/sync/bunny
 
-# Simule l'arrivée d'une nouvelle vidéo
-curl -X POST http://localhost:5055/event \
-  -H "Content-Type: application/json" \
-  -d '{
-    "event": "new_video",
-    "file": "/path/to/test.mp4",
-    "timestamp": "2025-11-12T01:23:45Z"
-  }'
+# Sync uniquement public library
+curl -X POST http://localhost:5061/sync/bunny?library_type=public
 
-# Vérifie le dashboard
-open http://localhost:5059
+# Lister vidéos publiques
+curl http://localhost:5061/videos?library=public&limit=10
+
+# Lister vidéos privées
+curl http://localhost:5061/videos?library=private&limit=10
 ```
+
+### Monetizer API
+```bash
+# Vérifier un token
+curl -X POST http://localhost:5060/verify \
+  -H "Content-Type: application/json" \
+  -d '{"token":"OM43-XXXX-XXXX"}'
+
+# Générer un nouveau token
+curl -X POST http://localhost:5060/generate \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"user123","plan":"premium"}'
+```
+
+### Sentinel AI
+- **Dashboard** : http://localhost:10000
+- **System Health** : http://localhost:10000/api/system/health
+- **Services Status** : http://localhost:10000/api/services
+
+## 🔧 Stack Technique
+
+### ✅ Technologies utilisées
+- **Python 3.9+** : Backend services (FastAPI, Flask)
+- **SQLite** : Base de données locale
+- **Bunny CDN** : Streaming vidéo (2 libraries)
+- **Render.com** : Hosting (free tier)
+- **HTML/CSS/JS** : Frontend vanilla
+
+### 📡 Dépendances externes
+- **Bunny Stream** : CDN vidéo ($5/TB streaming)
+- **Render.com** : Hosting gratuit avec auto-sleep
 
 ## 🔐 Sécurité
 
-- Application Passwords pour WordPress (pas de plugin JWT)
-- Tokens OAuth2 pour réseaux sociaux
-- Pas de credentials hardcodés (`.env` gitignorés)
-- Lecture seule pour Sentinel Dashboard
+### Vidéos Privées
+- **Token Authentication** : Bunny Stream token auth activé
+- **Direct URL Block** : Accès direct aux URLs bloqué
+- **Signed URLs** : URLs temporaires avec expiration
+- **Token Validation** : Monetizer vérifie chaque accès
 
-## 🚦 Ports utilisés
+### Tokens Utilisateur
+- **Format** : `OM43-XXXX-XXXX` (préfixe personnalisable)
+- **Expiration** : 365 jours par défaut
+- **QR Codes** : Génération automatique pour partage
+- **Base de données** : SQLite local, pas de cloud
 
-- **5000** : Web Interface (interface principale) ⭐
-- 5055 : Gateway (orchestrateur) 🔧
-- 5056 : Narrator AI
-- 5058 : Publisher AI
-- 5059 : Sentinel Dashboard
-- 5060 : Monetizer AI
-- ~~5054 : Curator Bot~~ (optionnel)
-- ~~5057 : Builder Bot~~ (deprecated)
+## � Ports Services
 
-## 🌐 Déploiement Production
+- **5061** : Curator Bot (gestion vidéos)
+- **5060** : Monetizer AI (auth tokens)
+- **5062** : Public Interface (site web)
+- **10000** : Sentinel AI (monitoring)
 
-### Render.com (recommandé)
-Consulte [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) pour le guide complet.
+## 📚 Documentation
 
-**Résumé :**
-- 5 services Web Services sur Render (gratuit ou $7/mois chacun)
-- SQLite avec Render Disks pour persistence
-- Variables d'environnement pour configuration
-- Déploiement Git push automatique
+### Services Principaux
+- [Curator Bot](curator_bot/README.md) - Gestion vidéos Bunny dual library
+- [Monetizer AI](monetizer_ai/README.md) - Authentification & tokens
+- [Public Interface](public_interface/README.md) - Site web public
+- [Sentinel AI](sentinel_ai/README.md) - Monitoring système
 
-### Docker (alternative)
+### Documentation Technique
+- [BUNNY_DUAL_LIBRARY.md](BUNNY_DUAL_LIBRARY.md) - Architecture dual library détaillée
+- [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) - Guide déploiement production
+
+## 🌐 Production (Render.com)
+
+### Services Déployés
 ```bash
-docker-compose up -d
+# Curator Bot
+https://only-curator.onrender.com
+Status: ✅ 135 videos (14 public + 121 private)
+
+# Monetizer AI
+https://only-monetizer.onrender.com
+Status: ✅ Token auth active
+
+# Public Interface
+https://only-public.onrender.com
+Status: ✅ Site web live
+
+# Sentinel AI
+https://only-sentinel.onrender.com
+Status: ✅ Monitoring 4 services
 ```
-(fichier docker-compose.yml à venir)
 
-## 📈 Prochaines étapes (optionnel)
+### Déploiement Automatique
+- **Git Push** → Auto-deploy sur Render
+- **Free Tier** : Services dorment après 15min inactivité
+- **Wake Time** : ~30s au premier accès
+- **Persistence** : SQLite avec Render Disks
 
-- **Authentification** : JWT pour Web Interface
-- **Analytics AI** : statistiques avancées locales
-- **Storage Watcher** : surveillance NAS/Synology
-- **Coach AI** : recommandations automatiques
-- **Docker Compose** : déploiement one-click
+Consulte [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) pour configuration complète.
+
+## 📊 Statistiques Actuelles
+
+- **135 vidéos totales** sur Bunny Stream
+  - 14 previews publics (library 420867)
+  - 121 vidéos privées (library 389178)
+- **4 services** déployés en production
+- **100% uptime** monitoring par Sentinel AI
+- **$0/mois** sur Render free tier
+
+## 📈 Roadmap
+
+### À venir
+- [ ] Signed URLs pour vidéos privées (sécurité accrue)
+- [ ] Frontend : filtrage par library sur Public Interface
+- [ ] Frontend : login flow + player vidéos privées
+- [ ] Analytics : tracking vues par vidéo
+- [ ] Social : partage automatique previews
+
+### Améliorations futures
+- [ ] Payment integration (Stripe)
+- [ ] Email notifications (nouveaux contenus)
+- [ ] Mobile app (PWA)
+- [ ] Admin dashboard (gestion contenus)
 
 ## 📝 Licence
 
@@ -300,4 +298,5 @@ Propriétaire - Tous droits réservés
 
 ---
 
-**Créé pour ONLY - Netflix modulaire autonome**
+**ONLY - Plateforme vidéo premium freemium**  
+*Previews gratuits pour tous • Contenu complet pour abonnés*
