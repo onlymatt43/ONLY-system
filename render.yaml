@@ -5,9 +5,9 @@ services:
   # Content Brain AI (Phase 1)
   - type: web
     name: only-content-brain
+    plan: free
     env: python
     region: frankfurt
-    plan: starter
     buildCommand: pip install -r content_brain_ai/requirements.txt
     startCommand: python content_brain_ai/content_brain.py
     envVars:
@@ -22,9 +22,9 @@ services:
   # Content Scheduler (Phase 1)
   - type: web
     name: only-content-scheduler
+    plan: free
     env: python
     region: frankfurt
-    plan: starter
     buildCommand: pip install -r content_scheduler/requirements.txt
     startCommand: python content_scheduler/scheduler_api.py
     envVars:
@@ -41,9 +41,9 @@ services:
   # Sales & Retention Engine (Phase 2)
   - type: web
     name: only-sales-engine
+    plan: free
     env: python
     region: frankfurt
-    plan: starter
     buildCommand: pip install -r sales_engine/requirements.txt
     startCommand: python sales_engine/sales_api.py
     envVars:
@@ -58,9 +58,9 @@ services:
   # Consumer Chat System (Phase 2)
   - type: web
     name: only-consumer-chat
+    plan: free
     env: python
     region: frankfurt
-    plan: starter
     buildCommand: pip install -r consumer_chat/requirements.txt
     startCommand: python consumer_chat/chat_api.py
     envVars:
@@ -75,9 +75,9 @@ services:
   # Blog & Homepage Engine (Phase 2)
   - type: web
     name: only-blog-engine
+    plan: free
     env: python
     region: frankfurt
-    plan: starter
     buildCommand: pip install -r blog_engine/requirements.txt
     startCommand: python blog_engine/blog_api.py
     envVars:
@@ -88,3 +88,65 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.0
     healthCheckPath: /health
+
+  # Narrator AI (Phase 2)
+  - type: web
+    name: narrator-ai
+    plan: free
+    env: python
+    region: frankfurt
+    buildCommand: "./build.sh && apt-get update && apt-get install -y ffmpeg"
+    startCommand: "python3 narrator_ai/narrator_ai.py"
+    envVars:
+      - key: PORT
+        value: 5075
+      - key: CURATOR_URL
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    healthCheckPath: /health
+
+  # Monetizer AI (Phase 2)
+  - type: web
+    name: monetizer-ai
+    plan: free
+    env: python
+    region: frankfurt
+    buildCommand: "./build.sh"
+    startCommand: "python3 monetizer_ai/monetizer_ai.py"
+    envVars:
+      - key: PORT
+        value: 5076
+      - key: SALES_DB_PATH
+        value: /opt/render/project/src/sales_engine.db
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    healthCheckPath: /health
+
+  # Consumer Bot (Phase 2)
+  - type: web
+    name: curator-bot
+    plan: free
+    env: python
+    region: frankfurt
+    buildCommand: "./build.sh"
+    startCommand: "python3 curator_bot/curator_bot.py"
+    envVars:
+      - key: PORT
+        value: 5077
+      - key: CURATOR_URL
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    healthCheckPath: /health
+
+  # Sentinel Dashboard (Phase 2)
+  - type: web
+    name: sentinel-dashboard
+    plan: free
+    env: python
+    region: frankfurt
+    buildCommand: "./build.sh"
+    startCommand: "python3 sentinel_dashboard/sentinel.py"
+    envVars:
+      - fromGroup: service-urls

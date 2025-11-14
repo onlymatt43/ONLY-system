@@ -54,11 +54,13 @@ async function mintToken() {
 }
 
 async function loadTokens() {
+    const tokensGrid = document.getElementById('tokens-grid');
     try {
         const response = await fetch('/api/monetizer/tokens?limit=50');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const tokens = await response.json();
-        
-        const tokensGrid = document.getElementById('tokens-grid');
         
         if (!tokens || tokens.length === 0) {
             tokensGrid.innerHTML = '<p class="loading">Aucun token créé</p>';
@@ -79,17 +81,23 @@ async function loadTokens() {
                 revoked: 'var(--error)'
             };
             
+            // Utiliser les noms de colonnes de la base de données
+            const codeVisible = token.title || token.code_visible || 'N/A';
+            const tokenStatus = token.status || 'unknown';
+            const expiresAt = token.expires_at ? `Expire: ${new Date(token.expires_at).toLocaleString()}` : 'Pas encore activé';
+            const unlockUrl = token.unlock_url || '#';
+
             card.innerHTML = `
-                <h4 style="margin-bottom: 0.5rem;">${token.code_visible}</h4>
+                <h4 style="margin-bottom: 0.5rem;">${codeVisible}</h4>
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-                    <span style="color: ${statusColors[token.status] || 'var(--text)'};">
-                        ${token.status}
+                    <span style="color: ${statusColors[tokenStatus] || 'var(--text)'};">
+                        ${tokenStatus}
                     </span>
                 </p>
                 <p style="font-size: 0.8rem; color: var(--text-muted);">
-                    ${token.expires_at ? `Expire: ${token.expires_at}` : 'Pas encore activé'}
+                    ${expiresAt}
                 </p>
-                <a href="${token.unlock_url}" target="_blank" 
+                <a href="${unlockUrl}" target="_blank" 
                    style="display: inline-block; margin-top: 0.5rem; color: var(--primary); font-size: 0.85rem;">
                     Voir QR
                 </a>
@@ -99,8 +107,8 @@ async function loadTokens() {
         });
     } catch (error) {
         console.error('Erreur:', error);
-        document.getElementById('tokens-grid').innerHTML = 
-            '<p class="loading">Erreur de chargement</p>';
+        tokensGrid.innerHTML = 
+            '<p class="loading" style="color: var(--error);">Erreur de chargement des tokens.</p>';
     }
 }
 
