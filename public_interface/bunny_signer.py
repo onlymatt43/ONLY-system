@@ -68,7 +68,7 @@ def get_secure_embed_url(
     expires = int((datetime.now() + timedelta(hours=expires_in_hours)).timestamp())
     
     # Create signature data
-    signature_data = f"{library_id}{security_key}{expires}{video_id}"
+    signature_data = f"{library_id}{key}{expires}{video_id}"
     
     # Generate SHA256 hash
     signature_hash = hashlib.sha256(signature_data.encode('utf-8')).digest()
