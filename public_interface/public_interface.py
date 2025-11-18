@@ -174,14 +174,6 @@ async def browse(request: Request, category: str = None, tag: str = None, access
 async def watch(request: Request, video_id: str, access_token: str = Cookie(None)):
     """Watch page - Video player with access control"""
     
-    # Import Bunny signer for secure embed URLs
-    try:
-        from bunny_signer import get_secure_embed_url
-        use_signed_urls = True
-    except Exception as e:
-        print(f"Warning: bunny_signer not available: {e}")
-        use_signed_urls = False
-    
     # Verify token
     token_data = None
     if access_token:
@@ -200,43 +192,30 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
     has_access = check_video_access(video, token_data)
     
     if not has_access:
-        # SECURITY: Don't render watch.html with iframe if no access
-        # Redirect to login instead of showing paywall with video metadata
+        # Redirect to login if no access to VIP/PPV content
         if video.get("access_level") in ["vip", "ppv"]:
-            # Redirect to login page with return URL
             return RedirectResponse(url=f"/login?next=/watch/{video_id}", status_code=303)
     
     # Fetch related videos
     related_videos = fetch_videos(limit=20)
     related_videos = [v for v in related_videos if v["id"] != video_id and check_video_access(v, token_data)][:6]
     
-    # Generate secure embed URL if signing is available
-    if use_signed_urls:
+    # ✅ Generate secure embed URL (SINGLE LOGIC)
+    if BUNNY_SECURITY_KEY:
         try:
             secure_embed_url = get_secure_embed_url(
-                library_id="389178",
+                library_id=389178,
                 video_id=video["bunny_video_id"],
-                autoplay=True,
-                expires_in=7200  # 2 hours
+                security_key=BUNNY_SECURITY_KEY,
+                expires_in_hours=2
             )
         except Exception as e:
-            print(f"Error generating signed URL: {e}")
+            print(f"⚠️ Error generating signed URL: {e}")
             # Fallback to simple URL
-            secure_embed_url = f"https://iframe.mediadelivery.net/embed/389178/{video['bunny_video_id']}?autoplay=true&muted=false&loop=false&preload=true"
+            secure_embed_url = f"https://iframe.mediadelivery.net/embed/389178/{video['bunny_video_id']}?autoplay=true"
     else:
-        # Simple URL without token
-        secure_embed_url = f"https://iframe.mediadelivery.net/embed/389178/{video['bunny_video_id']}?autoplay=true&muted=false&loop=false&preload=true"
-    
-    # ✅ FIX: Use signed URLs if security key is configured
-    if BUNNY_SECURITY_KEY:
-        secure_embed_url = get_secure_embed_url(
-            library_id=389178,
-            video_id=video["bunny_video_id"],
-            security_key=BUNNY_SECURITY_KEY,
-            expires_in_hours=2
-        )
-    else:
-        # Fallback sans token (causera 403 si Token Auth est ON sur Bunny)
+        # No security key configured - simple URL (will cause 403 if Token Auth is ON)
+        print("⚠️ BUNNY_SECURITY_KEY not configured")
         secure_embed_url = f"https://iframe.mediadelivery.net/embed/389178/{video['bunny_video_id']}?autoplay=true"
     
     return templates.TemplateResponse("watch.html", {

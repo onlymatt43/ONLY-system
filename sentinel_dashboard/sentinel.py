@@ -194,12 +194,16 @@ def manual_heal(service: str):
     })
 
 
+import re
+
 class SentinelMonitor:
     def __init__(self):
         self.is_active = False
         self.services = {
             "Gateway": os.environ.get('GATEWAY_URL', 'http://localhost:5055'),
             "Curator": os.environ.get('CURATOR_URL', 'http://localhost:5061'),
+            "Narrator": os.environ.get('NARRATOR_URL', 'http://localhost:5056'),
+            "Publisher": os.environ.get('PUBLISHER_URL', 'http://localhost:5058'),
             "Monetizer": os.environ.get('MONETIZER_URL', 'http://localhost:5060'),
             "Public": os.environ.get('PUBLIC_URL', 'http://localhost:5062')
         }
@@ -236,14 +240,17 @@ class SentinelMonitor:
         """Wake up sleeping service (Render free tier)"""
         try:
             requests.get(url, timeout=10)
+            print(f"🔄 Attempting to wake service at {url}")
         except:
             pass
 
-# Initialize and start
+# Initialize and start monitoring
 monitor = SentinelMonitor()
 monitor.start_monitoring()
 
 if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=PORT)
     import uvicorn

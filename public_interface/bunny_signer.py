@@ -4,11 +4,10 @@ Génère des tokens JWT pour les embeds sécurisés
 """
 
 import os
-import time
 import hmac
 import hashlib
 import base64
-from typing import Optional
+from datetime import datetime, timedelta
 
 # Security key from Bunny Dashboard → Library → Security → "Security Key"
 BUNNY_SECURITY_KEY = os.getenv("BUNNY_SECURITY_KEY", "")
@@ -47,48 +46,61 @@ def generate_token(library_id: str, video_id: str, expires_in_seconds: int = 360
     return token
 
 
-def get_secure_embed_url(library_id: str, video_id: str, autoplay: bool = True, 
-                         muted: bool = False, expires_in: int = 3600) -> str:
+def get_secure_embed_url(
+    library_id: int,
+    video_id: str,
+    security_key: str = None,
+    expires_in_hours: int = 2,
+    autoplay: bool = True
+) -> str:
     """
-    Génère URL d'embed sécurisée avec token
-    
-    Args:
-        library_id: ID library (389178)
-        video_id: UUID vidéo
-        autoplay: Lecture auto
-        muted: Muet
-        expires_in: Durée validité token (secondes)
-    
-    Returns:
-        URL complète avec token
+    Generate secure Bunny Stream embed URL with token authentication
     """
-    token = generate_token(library_id, video_id, expires_in)
-    expiration = int(time.time()) + expires_in
     
-    # Base URL
-    url = f"https://iframe.mediadelivery.net/embed/{library_id}/{video_id}"
+    # Use security key from parameter or environment
+    key = security_key or os.environ.get('BUNNY_SECURITY_KEY')
     
-    # Query params
+    if not key:
+        print("⚠️ BUNNY_SECURITY_KEY not configured, returning unsigned URL")
+        return f"https://iframe.mediadelivery.net/embed/{library_id}/{video_id}?autoplay={'true' if autoplay else 'false'}"
+    
+    # Calculate expiration timestamp
+    expires = int((datetime.now() + timedelta(hours=expires_in_hours)).timestamp())
+    
+    # Create signature data
+    signature_data = f"{library_id}{security_key}{expires}{video_id}"
+    
+    # Generate SHA256 hash
+    signature_hash = hashlib.sha256(signature_data.encode('utf-8')).digest()
+    
+    # Base64 encode and make URL-safe
+    token = base64.urlsafe_b64encode(signature_hash).decode('utf-8').rstrip('=')
+    
+    # Build URL
+    base_url = f"https://iframe.mediadelivery.net/embed/{library_id}/{video_id}"
     params = [
         f"token={token}",
-        f"expires={expiration}",
-        f"autoplay={'true' if autoplay else 'false'}",
-        f"muted={'true' if muted else 'false'}",
-        "loop=false",
-        "preload=true"
+        f"expires={expires}",
+        f"autoplay={'true' if autoplay else 'false'}"
     ]
     
-    return f"{url}?{'&'.join(params)}"
+    return f"{base_url}?{'&'.join(params)}"
 
 
 if __name__ == "__main__":
     # Test
-    test_url = get_secure_embed_url(
-        library_id="389178",
-        video_id="d8f84503-7a71-4535-8069-6f84cc6d1b6e",
-        autoplay=True,
-        expires_in=3600
-    )
-    
-    print("🔒 Secure Bunny Embed URL:")
-    print(test_url)
+    try:
+        url = get_secure_embed_url(
+            library_id=389178,
+            video_id="test-video-id",
+            expires_in_hours=2
+        )
+        print("✅ Secure URL generated:")
+        print(url)
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        )
+        print("✅ Secure URL generated:")
+        print(url)
+    except Exception as e:
+        print(f"❌ Error: {e}")
