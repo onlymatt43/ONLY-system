@@ -13,12 +13,14 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import uvicorn
+from bunny_signer import get_secure_embed_url
 
 # Configuration
 PORT = int(os.getenv("PORT", "5062"))
 CURATOR_URL = os.getenv("CURATOR_URL", "http://localhost:5061")
 MONETIZER_URL = os.getenv("MONETIZER_URL", "http://localhost:5060")
 GATEWAY_URL = os.getenv("GATEWAY_URL", "http://localhost:5055")
+BUNNY_SECURITY_KEY = os.environ.get('BUNNY_SECURITY_KEY')
 
 app = FastAPI(title="ONLY - Public Interface", version="1.0.0")
 
@@ -224,6 +226,18 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
     else:
         # Simple URL without token
         secure_embed_url = f"https://iframe.mediadelivery.net/embed/389178/{video['bunny_video_id']}?autoplay=true&muted=false&loop=false&preload=true"
+    
+    # ✅ FIX: Use signed URLs if security key is configured
+    if BUNNY_SECURITY_KEY:
+        secure_embed_url = get_secure_embed_url(
+            library_id=389178,
+            video_id=video["bunny_video_id"],
+            security_key=BUNNY_SECURITY_KEY,
+            expires_in_hours=2
+        )
+    else:
+        # Fallback sans token (causera 403 si Token Auth est ON sur Bunny)
+        secure_embed_url = f"https://iframe.mediadelivery.net/embed/389178/{video['bunny_video_id']}?autoplay=true"
     
     return templates.TemplateResponse("watch.html", {
         "request": request,

@@ -194,6 +194,57 @@ def manual_heal(service: str):
     })
 
 
+class SentinelMonitor:
+    def __init__(self):
+        self.is_active = False
+        self.services = {
+            "Gateway": os.environ.get('GATEWAY_URL', 'http://localhost:5055'),
+            "Curator": os.environ.get('CURATOR_URL', 'http://localhost:5061'),
+            "Monetizer": os.environ.get('MONETIZER_URL', 'http://localhost:5060'),
+            "Public": os.environ.get('PUBLIC_URL', 'http://localhost:5062')
+        }
+    
+    def start_monitoring(self):
+        """Start continuous health checks"""
+        self.is_active = True
+        print("🛡️ Sentinel activated - Monitoring system")
+        
+        def monitor_loop():
+            while self.is_active:
+                self.perform_health_check()
+                time.sleep(30)  # Check every 30 seconds
+        
+        # Start in background thread
+        monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
+        monitor_thread.start()
+    
+    def perform_health_check(self):
+        """Check all services"""
+        for name, url in self.services.items():
+            try:
+                response = requests.get(f"{url}/health", timeout=5)
+                if response.status_code == 200:
+                    print(f"✅ {name} is operational")
+                else:
+                    print(f"❌ {name} returned {response.status_code}")
+                    self.wake_service(url)
+            except Exception as e:
+                print(f"❌ {name} is down: {e}")
+                self.wake_service(url)
+    
+    def wake_service(self, url):
+        """Wake up sleeping service (Render free tier)"""
+        try:
+            requests.get(url, timeout=10)
+        except:
+            pass
+
+# Initialize and start
+monitor = SentinelMonitor()
+monitor.start_monitoring()
+
 if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=PORT)
