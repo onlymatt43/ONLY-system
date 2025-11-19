@@ -25,8 +25,8 @@ def get_secure_embed_url(
     expires = int((datetime.now() + timedelta(hours=expires_in_hours)).timestamp())
     
     # ✅ FIX: Correct signature format according to Bunny docs
-    # Format: library_id + security_key + expires + video_id
-    signature_data = f"{library_id}{key}{expires}{video_id}"
+    # Format: library_id-video_id-expires-token_security_key
+    signature_data = f"{library_id}-{video_id}-{expires}-{key}"
     
     # Generate SHA256 hash
     signature_hash = hashlib.sha256(signature_data.encode('utf-8')).digest()
@@ -50,11 +50,14 @@ def get_secure_embed_url(
 
 
 if __name__ == "__main__":
-    # Test
+    # ✅ FIX: Test avec clé hardcodée
+    test_key = "453f0507-2f2c-4155-95bd-31a2fdd3610c"
+    
     try:
         url = get_secure_embed_url(
             library_id=389178,
             video_id="test-video-id",
+            security_key=test_key,  # ← Force la clé
             expires_in_hours=2
         )
         print("✅ Secure URL generated:")
