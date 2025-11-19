@@ -67,7 +67,7 @@ def get_secure_embed_url(
     # Calculate expiration timestamp
     expires = int((datetime.now() + timedelta(hours=expires_in_hours)).timestamp())
     
-    # Create signature data
+    # Create signature data - USE 'key' NOT 'security_key'
     signature_data = f"{library_id}{key}{expires}{video_id}"
     
     # Generate SHA256 hash
@@ -94,11 +94,6 @@ if __name__ == "__main__":
             library_id=389178,
             video_id="test-video-id",
             expires_in_hours=2
-        )
-        print("✅ Secure URL generated:")
-        print(url)
-    except Exception as e:
-        print(f"❌ Error: {e}")
         )
         print("✅ Secure URL generated:")
         print(url)
