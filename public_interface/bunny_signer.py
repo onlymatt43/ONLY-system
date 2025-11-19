@@ -24,15 +24,17 @@ def get_secure_embed_url(
     # Calculate expiration timestamp
     expires = int((datetime.now() + timedelta(hours=expires_in_hours)).timestamp())
     
-    # ✅ FIX: Correct signature format according to Bunny docs
-    # Format: library_id-video_id-expires-token_security_key
-    signature_data = f"{library_id}-{video_id}-{expires}-{key}"
+    # ✅ CORRECT FORMAT selon Bunny docs:
+    # SHA256 hash de: library_id + security_key + expires + video_id (SANS séparateurs)
+    signature_data = f"{library_id}{key}{expires}{video_id}"
     
-    # Generate SHA256 hash
+    print(f"🔐 Signature data: library_id={library_id}, expires={expires}, video_id={video_id}")
+    
+    # Generate SHA256 hash (pas HMAC, juste SHA256)
     signature_hash = hashlib.sha256(signature_data.encode('utf-8')).digest()
     
-    # Base64 encode and make URL-safe
-    token = base64.urlsafe_b64encode(signature_hash).decode('utf-8').rstrip('=')
+    # Base64 encode (standard, pas URL-safe) et remove padding
+    token = base64.b64encode(signature_hash).decode('utf-8').rstrip('=')
     
     # Build URL with token and expires parameters
     base_url = f"https://iframe.mediadelivery.net/embed/{library_id}/{video_id}"
@@ -44,20 +46,17 @@ def get_secure_embed_url(
     
     signed_url = f"{base_url}?{'&'.join(params)}"
     
-    print(f"🔐 Signed URL generated: {signed_url[:80]}...")
+    print(f"✅ Signed URL generated (token length: {len(token)})")
     
     return signed_url
 
 
 if __name__ == "__main__":
-    # ✅ FIX: Test avec clé hardcodée
-    test_key = "453f0507-2f2c-4155-95bd-31a2fdd3610c"
-    
+    # Test
     try:
         url = get_secure_embed_url(
             library_id=389178,
             video_id="test-video-id",
-            security_key=test_key,  # ← Force la clé
             expires_in_hours=2
         )
         print("✅ Secure URL generated:")
