@@ -200,7 +200,9 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
     related_videos = fetch_videos(limit=20)
     related_videos = [v for v in related_videos if v["id"] != video_id and check_video_access(v, token_data)][:6]
     
-    # ✅ Generate secure embed URL (SINGLE LOGIC)
+    # ✅ FIX: Generate secure signed URL
+    secure_embed_url = None
+    
     if BUNNY_SECURITY_KEY:
         try:
             secure_embed_url = get_secure_embed_url(
@@ -209,13 +211,13 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
                 security_key=BUNNY_SECURITY_KEY,
                 expires_in_hours=2
             )
+            print(f"✅ Generated signed URL for video {video_id}")
         except Exception as e:
-            print(f"⚠️ Error generating signed URL: {e}")
-            # Fallback to simple URL
+            print(f"❌ Error generating signed URL: {e}")
+            # Fallback to unsigned URL (will cause 403 if Token Auth is ON)
             secure_embed_url = f"https://iframe.mediadelivery.net/embed/389178/{video['bunny_video_id']}?autoplay=true"
     else:
-        # No security key configured - simple URL (will cause 403 if Token Auth is ON)
-        print("⚠️ BUNNY_SECURITY_KEY not configured")
+        print("⚠️ BUNNY_SECURITY_KEY not configured - using unsigned URL")
         secure_embed_url = f"https://iframe.mediadelivery.net/embed/389178/{video['bunny_video_id']}?autoplay=true"
     
     return templates.TemplateResponse("watch.html", {
