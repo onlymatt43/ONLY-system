@@ -174,57 +174,58 @@ async def browse(request: Request, category: str = None, tag: str = None, access
 async def watch(request: Request, video_id: str, access_token: str = Cookie(None)):
     """Watch page - Video player with access control"""
     
+    print(f"🎬 Accessing /watch/{video_id}")
+    
     # Verify token
     token_data = None
     if access_token:
         token_data = verify_token(access_token)
+        print(f"✅ Token valid: {token_data}")
+    else:
+        print("⚠️ No access token provided")
     
     # Fetch video details from Curator
     try:
-        response = requests.get(f"{CURATOR_URL}/videos/{video_id}", timeout=5)
+        curator_url = f"{CURATOR_URL}/videos/{video_id}"
+        print(f"📡 Fetching from: {curator_url}")
+        
+        response = requests.get(curator_url, timeout=5)
+        print(f"📊 Curator response: {response.status_code}")
+        
         if response.status_code != 200:
-            raise HTTPException(status_code=404, detail="Video not found")
+            print(f"❌ Curator error: {response.text}")
+            raise HTTPException(status_code=404, detail=f"Video not found: {video_id}")
+        
         video = response.json()
+        print(f"✅ Video found: {video.get('title', 'N/A')}")
+        
+    except requests.exceptions.ConnectionError as e:
+        print(f"❌ Cannot connect to Curator: {e}")
+        raise HTTPException(status_code=503, detail="Curator service unavailable")
     except Exception as e:
-        raise HTTPException(status_code=404, detail="Video not found")
+        print(f"❌ Error fetching video: {e}")
+        raise HTTPException(status_code=404, detail=f"Video not found: {video_id}")
     
     # Check access
     has_access = check_video_access(video, token_data)
     
     if not has_access:
-        # Redirect to login if no access to VIP/PPV content
-        if video.get("access_level") in ["vip", "ppv"]:
-            return RedirectResponse(url=f"/login?next=/watch/{video_id}", status_code=303)
+        # Redirect to login if no access (and not VIP/PPV)
+        return RedirectResponse(url=f"/login?next=/watch/{video_id}", status_code=303)
     
-    # Fetch related videos
-    related_videos = fetch_videos(limit=20)
-    related_videos = [v for v in related_videos if v["id"] != video_id and check_video_access(v, token_data)][:6]
+    # ✅ Génère token temporaire lié à cette session
+    session_token = generate_session_token(video_id, access_token)
     
-    # ✅ FIX: Generate secure signed URL
-    secure_embed_url = None
+    # URL iframe avec token de SESSION (pas token Bunny)
+    iframe_url = f"https://only-public.onrender.com/stream/{video_id}?st={session_token}"
     
-    if BUNNY_SECURITY_KEY:
-        try:
-            secure_embed_url = get_secure_embed_url(
-                library_id=389178,
-                video_id=video["bunny_video_id"],
-                security_key=BUNNY_SECURITY_KEY,
-                expires_in_hours=2
-            )
-            print(f"✅ Generated signed URL for video {video_id}")
-        except Exception as e:
-            print(f"❌ Error generating signed URL: {e}")
-            # Fallback to unsigned URL (will cause 403 if Token Auth is ON)
-            secure_embed_url = f"https://iframe.mediadelivery.net/embed/389178/{video['bunny_video_id']}?autoplay=true"
-    else:
-        print("⚠️ BUNNY_SECURITY_KEY not configured - using unsigned URL")
-        secure_embed_url = f"https://iframe.mediadelivery.net/embed/389178/{video['bunny_video_id']}?autoplay=true"
+    # Tu construis les URLs d'embed Bunny
+    secure_embed_url = f"https://iframe.mediadelivery.net/embed/389178/{video['bunny_video_id']}?autoplay=true"
     
     return templates.TemplateResponse("watch.html", {
         "request": request,
         "video": video,
-        "secure_embed_url": secure_embed_url,
-        "related_videos": related_videos,
+        "iframe_url": iframe_url,
         "is_authenticated": token_data is not None,
         "is_vip": token_data and token_data.get("access_level") == "vip"
     })
@@ -243,6 +244,7 @@ async def login(request: Request):
     token = data.get("token")
     
     if not token:
+        # Verify token with Monetizer
         raise HTTPException(status_code=400, detail="Token required")
     
     # Verify token with Monetizer
@@ -281,7 +283,6 @@ async def api_videos(category_id: str = None, tag_id: str = None, limit: int = 5
     
     videos = fetch_videos(category_id=category_id, tag_id=tag_id, limit=limit)
     accessible_videos = [v for v in videos if check_video_access(v, token_data)]
-    
     return accessible_videos
 
 @app.get("/api/categories")
@@ -303,9 +304,11 @@ async def health():
 # MAIN
 # ============================================================================
 
+print(f"🌐 PUBLIC INTERFACE starting on port {PORT}...")
+
 if __name__ == "__main__":
     print(f"🌐 PUBLIC INTERFACE starting on port {PORT}...")
+    print(f"🚪 Gateway: {GATEWAY_URL}")
     print(f"🎬 Curator: {CURATOR_URL}")
     print(f"💰 Monetizer: {MONETIZER_URL}")
-    print(f"🚪 Gateway: {GATEWAY_URL}")
     uvicorn.run(app, host="0.0.0.0", port=PORT)

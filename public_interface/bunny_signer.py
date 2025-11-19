@@ -34,7 +34,7 @@ def get_secure_embed_url(
     signature_hash = hashlib.sha256(signature_data.encode('utf-8')).digest()
     
     # Base64 encode (standard, pas URL-safe) et remove padding
-    token = base64.b64encode(signature_hash).decode('utf-8').rstrip('=')
+    token = base64.urlsafe_b64encode(signature_hash).decode('utf-8')
     
     # Build URL with token and expires parameters
     base_url = f"https://iframe.mediadelivery.net/embed/{library_id}/{video_id}"

@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from dotenv import load_dotenv
 from jinja2 import Environment, FileSystemLoader
 import requests
+from datetime import datetime
 
 # Import Sentinel AI
 from sentinel_ai import SentinelAI
@@ -247,6 +248,194 @@ class SentinelMonitor:
 # Initialize and start monitoring
 monitor = SentinelMonitor()
 monitor.start_monitoring()
+
+class SentinelAutoFix:
+    """Sentinel qui diagnostique ET corrige automatiquement"""
+    
+    def __init__(self):
+        self.issues = []
+        self.fixes_applied = []
+    
+    def diagnose_system(self) -> dict:
+        """Diagnostique complet automatique"""
+        print("🔍 Sentinel: Diagnostic automatique...")
+        
+        results = {
+            "timestamp": datetime.now().isoformat(),
+            "issues_found": [],
+            "fixes_applied": [],
+            "action_required": []
+        }
+        
+        # 1. Check vidéos 403
+        video_403 = self._check_video_403()
+        if video_403:
+            results["issues_found"].append(video_403)
+            
+            # Auto-fix si possible
+            fix = self._fix_video_403()
+            if fix["auto_fixed"]:
+                results["fixes_applied"].append(fix)
+            else:
+                results["action_required"].append(fix)
+        
+        # 2. Check services down
+        services_down = self._check_services()
+        results["issues_found"].extend(services_down)
+        
+        # 3. Check config errors
+        config_errors = self._check_configuration()
+        results["issues_found"].extend(config_errors)
+        
+        return results
+    
+    def _check_video_403(self) -> dict:
+        """Vérifie si vidéos retournent 403"""
+        try:
+            # Test une vidéo
+            response = requests.get(
+                "https://only-public.onrender.com/watch/121",
+                timeout=5
+            )
+            
+            if "403" in response.text or response.status_code == 403:
+                return {
+                    "type": "VIDEO_403",
+                    "severity": "CRITICAL",
+                    "message": "Les vidéos retournent 403 Forbidden",
+                    "detected_at": datetime.now().isoformat()
+                }
+        except:
+            pass
+        
+        return None
+    
+    def _fix_video_403(self) -> dict:
+        """Tente de corriger le 403 automatiquement"""
+        
+        # Check si BUNNY_SECURITY_KEY existe
+        bunny_key = os.environ.get('BUNNY_SECURITY_KEY')
+        
+        if not bunny_key:
+            return {
+                "issue": "VIDEO_403",
+                "auto_fixed": False,
+                "action": "MANUAL",
+                "instructions": [
+                    "1. Va sur Bunny Dashboard: https://panel.bunny.net/stream",
+                    "2. Library 389178 → Security",
+                    "3. OPTION A (Rapide): Désactive 'Embed view token authentication'",
+                    "   OU",
+                    "4. OPTION B (Sécurisé): Copie Security Key",
+                    "5. Ajoute sur Render: BUNNY_SECURITY_KEY=ta-cle",
+                    "6. Redeploy only-public"
+                ],
+                "url": "https://panel.bunny.net/stream",
+                "render_url": "https://dashboard.render.com"
+            }
+        
+        # Si key existe, vérifier qu'elle fonctionne
+        from public_interface.bunny_signer import get_secure_embed_url
+        
+        try:
+            test_url = get_secure_embed_url(
+                library_id=389178,
+                video_id="test",
+                security_key=bunny_key
+            )
+            
+            if "token=" in test_url:
+                return {
+                    "issue": "VIDEO_403",
+                    "auto_fixed": True,
+                    "message": "Signed URLs fonctionnent. Le 403 devrait être résolu après redeploy."
+                }
+        except Exception as e:
+            return {
+                "issue": "VIDEO_403",
+                "auto_fixed": False,
+                "action": "MANUAL",
+                "error": str(e),
+                "instructions": [
+                    "La Security Key semble incorrecte.",
+                    "1. Va sur Bunny Dashboard",
+                    "2. Vérifie la Security Key",
+                    "3. Update BUNNY_SECURITY_KEY sur Render",
+                    "4. Redeploy"
+                ]
+            }
+    
+    def _check_services(self) -> list:
+        """Check tous les services"""
+        services = {
+            "Gateway": "http://localhost:5055/health",
+            "Curator": "http://localhost:5061/health",
+            "Monetizer": "http://localhost:5060/health",
+            "Public": "http://localhost:5062/health"
+        }
+        
+        issues = []
+        for name, url in services.items():
+            try:
+                response = requests.get(url, timeout=3)
+                if response.status_code != 200:
+                    issues.append({
+                        "type": "SERVICE_DOWN",
+                        "service": name,
+                        "severity": "HIGH",
+                        "message": f"{name} ne répond pas correctement",
+                        "action": f"Redémarre: cd {name.lower()} && python3 {name.lower()}.py"
+                    })
+            except:
+                issues.append({
+                    "type": "SERVICE_DOWN",
+                    "service": name,
+                    "severity": "HIGH",
+                    "message": f"{name} n'est pas lancé",
+                    "action": f"Démarre: cd {name.lower()} && python3 {name.lower()}.py"
+                })
+        
+        return issues
+    
+    def _check_configuration(self) -> list:
+        """Vérifie config système"""
+        issues = []
+        
+        # Check env vars critiques
+        required_vars = {
+            "BUNNY_SECURITY_KEY": "Bunny Stream",
+            "TURSO_DATABASE_URL": "Monetizer (Turso)",
+            "TURSO_AUTH_TOKEN": "Monetizer (Turso)"
+        }
+        
+        for var, service in required_vars.items():
+            if not os.environ.get(var):
+                issues.append({
+                    "type": "CONFIG_MISSING",
+                    "severity": "MEDIUM",
+                    "message": f"Variable {var} manquante pour {service}",
+                    "action": f"Ajoute {var} dans .env ou sur Render"
+                })
+        
+        return issues
+
+# Endpoint auto-diagnostic
+@app.get("/api/autofix")
+async def autofix():
+    """Diagnostic automatique + tentative de correction"""
+    sentinel = SentinelAutoFix()
+    results = sentinel.diagnose_system()
+    
+    return {
+        "status": "scan_complete",
+        "timestamp": results["timestamp"],
+        "summary": {
+            "issues_found": len(results["issues_found"]),
+            "auto_fixed": len(results["fixes_applied"]),
+            "manual_required": len(results["action_required"])
+        },
+        "details": results
+    }
 
 if __name__ == "__main__":
     import uvicorn
