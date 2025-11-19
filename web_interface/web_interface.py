@@ -136,47 +136,45 @@ async def upload_video(request: Request):
         if not video_url:
             raise HTTPException(status_code=400, detail="URL vidéo requise")
         
-        # ✅ FIX: Envoyer au Gateway avec bon format
         gateway_url = os.environ.get("GATEWAY_URL", "http://localhost:5055")
         
-        response = requests.post(
-            f"{gateway_url}/event",
-            json={
-                "event": "manual_upload",
-                "file": video_url,
-                "title": title,
-                "timestamp": datetime.now().isoformat()
-            },
-            timeout=10
-        )
-        
-        # ✅ FIX: Vérifier erreur Gateway
-        if response.status_code != 200:
-            print(f"❌ Gateway error: {response.status_code} - {response.text}")
-            raise HTTPException(
-                status_code=502,
-                detail=f"Gateway error: {response.text}"
+        # ✅ FIX: Vérifier que Gateway est accessible
+        try:
+            response = requests.post(
+                f"{gateway_url}/event",
+                json={
+                    "event": "manual_upload",
+                    "file": video_url,
+                    "title": title,
+                    "timestamp": datetime.now().isoformat()
+                },
+                timeout=10
             )
-        
-        job = response.json()
-        
-        return {
-            "ok": True,
-            "job_id": job.get("job_id"),
-            "message": "Vidéo en cours de traitement"
-        }
-        
-    except requests.exceptions.ConnectionError:
-        print(f"❌ Cannot connect to Gateway at {gateway_url}")
-        raise HTTPException(
-            status_code=503,
-            detail="Gateway non disponible. Vérifiez que le service tourne."
-        )
-    except requests.exceptions.Timeout:
-        print(f"❌ Gateway timeout")
-        raise HTTPException(status_code=504, detail="Gateway timeout")
+            
+            if response.status_code != 200:
+                print(f"❌ Gateway error: {response.status_code} - {response.text}")
+                raise HTTPException(status_code=502, detail=f"Gateway error: {response.text}")
+            
+            job = response.json()
+            
+            return {
+                "ok": True,
+                "job_id": job.get("job_id"),
+                "message": "Vidéo en cours de traitement"
+            }
+            
+        except requests.exceptions.ConnectionError:
+            print(f"❌ Cannot connect to Gateway at {gateway_url}")
+            raise HTTPException(status_code=503, detail="Gateway non disponible. Démarrez le service Gateway.")
+        except requests.exceptions.Timeout:
+            raise HTTPException(status_code=504, detail="Gateway timeout")
+            
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"❌ Upload error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -203,22 +201,53 @@ async def get_tokens(limit: int = 50):
 
 @app.get("/api/curator/videos")
 async def get_curator_videos(limit: int = 50, offset: int = 0):
-    """Récupère les vidéos du Curator"""
+    """Proxy vers Curator Bot"""
     try:
-        r = requests.get(f"{CURATOR_URL}/videos?limit={limit}&offset={offset}", timeout=10)
-        return r.json()
+        curator_url = os.environ.get("CURATOR_URL", "http://localhost:5061")
+        response = requests.get(
+            f"{curator_url}/videos",
+            params={"limit": limit, "offset": offset},
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+            
+    except requests.exceptions.ConnectionError:
+        # ✅ FIX: Message clair si Curator non démarré
+        raise HTTPException(
+            status_code=503, 
+            detail="Curator Bot non disponible. Démarrez-le avec: cd curator_bot && python3 curator_bot.py"
+        )
+    except requests.exceptions.Timeout:
+        raise HTTPException(status_code=504, detail="Curator timeout")
     except Exception as e:
-        return {"error": str(e)}
+        print(f"❌ Curator error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/curator/categories")
 async def get_curator_categories():
-    """Récupère les catégories"""
+    """Proxy vers Curator Bot - Categories"""
     try:
-        r = requests.get(f"{CURATOR_URL}/categories", timeout=10)
-        return r.json()
+        curator_url = os.environ.get("CURATOR_URL", "http://localhost:5061")
+        response = requests.get(f"{curator_url}/categories", timeout=5)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+            
+    except requests.exceptions.ConnectionError:
+        raise HTTPException(
+            status_code=503,
+            detail="Curator Bot non disponible. Démarrez-le avec: cd curator_bot && python3 curator_bot.py"
+        )
     except Exception as e:
-        return {"error": str(e)}
+        print(f"❌ Curator categories error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/curator/categories")

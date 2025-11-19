@@ -54,20 +54,19 @@ async function mintToken() {
 }
 
 async function loadTokens() {
-    const tokensGrid = document.getElementById('tokens-grid');
     try {
-        const response = await fetch('/api/monetizer/tokens?limit=50');
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const tokens = await response.json();
+        const response = await fetch('/api/monetizer/tokens');
+        const data = await response.json();
         
-        if (!tokens || tokens.length === 0) {
-            tokensGrid.innerHTML = '<p class="loading">Aucun token créé</p>';
-            return;
-        }
+        // ✅ FIX: Extract tokens array from response
+        const tokens = Array.isArray(data) ? data : (data.tokens || []);
         
         tokensGrid.innerHTML = '';
+        
+        if (tokens.length === 0) {
+            tokensGrid.innerHTML = '<p style="color: var(--text-muted);">Aucun token créé</p>';
+            return;
+        }
         
         tokens.forEach(token => {
             const card = document.createElement('div');
@@ -105,10 +104,10 @@ async function loadTokens() {
             
             tokensGrid.appendChild(card);
         });
+        
     } catch (error) {
-        console.error('Erreur:', error);
-        tokensGrid.innerHTML = 
-            '<p class="loading" style="color: var(--error);">Erreur de chargement des tokens.</p>';
+        console.error('Erreur chargement tokens:', error);
+        tokensGrid.innerHTML = '<p style="color: var(--error);">Erreur de chargement des tokens</p>';
     }
 }
 
