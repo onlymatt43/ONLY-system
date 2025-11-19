@@ -6,6 +6,7 @@ import pathlib
 from email.mime.text import MIMEText
 from fastapi import FastAPI, Request
 from dotenv import load_dotenv
+from datetime import datetime
 
 # YouTube imports
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -233,6 +234,17 @@ async def social_publish(req: Request):
 @app.get("/")
 def home():
     return {"status": "PublisherAI online"}
+
+
+@app.get("/health")
+async def health():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "service": "publisher_ai",
+        "port": PORT,
+        "timestamp": datetime.now().isoformat()
+    }
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from dotenv import load_dotenv
 import requests
+from datetime import datetime
 
 load_dotenv()
 
@@ -227,6 +228,17 @@ def index():
         "status": "Narrator AI online",
         "provider": AI_PROVIDER,
         "model": LOCAL_MODEL if AI_PROVIDER == "ollama" else "N/A"
+    }
+
+
+@app.get("/health")
+async def health():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "service": "narrator_ai",
+        "port": PORT,
+        "timestamp": datetime.now().isoformat()
     }
 
 
