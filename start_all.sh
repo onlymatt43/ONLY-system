@@ -41,9 +41,14 @@ tmux send-keys -t $SESSION:3 "cd monetizer_ai && source venv/bin/activate 2>/dev
 tmux new-window -t $SESSION -n "web"
 tmux send-keys -t $SESSION:4 "cd web_interface && source venv/bin/activate 2>/dev/null || true && python3 web_interface.py" C-m
 
-# Fenêtre 6: Sentinel Dashboard (optionnel)
+# Fenêtre 6: Sentinel Dashboard
 tmux new-window -t $SESSION -n "sentinel"
 tmux send-keys -t $SESSION:5 "cd sentinel_dashboard && source venv/bin/activate 2>/dev/null || true && python3 sentinel.py" C-m
+
+# ✅ FIX: Ajoute Curator Bot
+# Fenêtre 7: Curator Bot
+tmux new-window -t $SESSION -n "curator"
+tmux send-keys -t $SESSION:6 "cd curator_bot && source venv/bin/activate 2>/dev/null || true && python3 curator_bot.py" C-m
 
 echo "✅ Services démarrés en arrière-plan dans tmux"
 echo ""
@@ -75,6 +80,7 @@ curl -s http://localhost:5058/health > /dev/null && echo "  ✓ Publisher OK" ||
 curl -s http://localhost:5060/health > /dev/null && echo "  ✓ Monetizer OK" || echo "  ⏳ Monetizer démarrage..."
 curl -s http://localhost:5000/ > /dev/null && echo "  ✓ Web Interface OK" || echo "  ⏳ Web Interface démarrage..."
 curl -s http://localhost:5059/ > /dev/null && echo "  ✓ Sentinel OK" || echo "  ⏳ Sentinel démarrage..."
+curl -s http://localhost:5061/health > /dev/null && echo "  ✓ Curator OK" || echo "  ⏳ Curator démarrage..."
 
 echo ""
 echo "🎉 Système ONLY prêt !"
