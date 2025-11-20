@@ -10,16 +10,21 @@ from dotenv import load_dotenv
 load_dotenv()
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
+# ✅ FIX: Port cohérent
+PORT = int(os.environ.get("PORT", 5060))
+
 # Turso config
 TURSO_DATABASE_URL = os.environ.get("TURSO_DATABASE_URL")
 TURSO_AUTH_TOKEN = os.environ.get("TURSO_AUTH_TOKEN")
+SECRET_KEY = os.environ.get("SECRET_KEY")
+CODE_PREFIX = os.environ.get("CODE_PREFIX", "OM43")
 
 if not TURSO_DATABASE_URL or not TURSO_AUTH_TOKEN:
     raise ValueError("❌ TURSO_DATABASE_URL et TURSO_AUTH_TOKEN requis dans .env")
 
-PORT            = int(os.getenv("PORT","5060"))
-SECRET_KEY      = os.getenv("SECRET_KEY","change-me-super-long-secret")
-CODE_PREFIX     = os.getenv("CODE_PREFIX","OM43")
+if not SECRET_KEY:
+    print("⚠️ SECRET_KEY non défini, utilise valeur par défaut (INSÉCURE)")
+    SECRET_KEY = "change-me-in-production"
 
 # Import Turso client
 from libsql_client import create_client_sync

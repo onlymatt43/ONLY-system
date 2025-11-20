@@ -277,14 +277,12 @@ def get_job(job_id: int):
 
 @app.get("/health")
 async def health():
-    """Health check endpoint for Render and Sentinel"""
+    """Health check endpoint"""
     return {
         "status": "healthy",
         "service": "gateway",
         "port": PORT,
-        "timestamp": datetime.now().isoformat(),
-        "database": "connected" if os.path.exists(DB_PATH) else "not_found",
-        "worker": "running"
+        "timestamp": datetime.now().isoformat()
     }
 
 

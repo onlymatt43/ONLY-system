@@ -1,14 +1,14 @@
 import os
+import requests
+from datetime import datetime  # ✅ FIX: Ajoute import
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
-import requests
-from typing import Dict, Any
-from datetime import datetime
 
 load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 PORT = int(os.getenv("PORT", "5000"))
 

@@ -20,10 +20,12 @@ from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 import logging
 
+# ✅ FIX: Charge .env global ET local
 load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 # Configuration
-PORT = int(os.getenv("PORT", "5061"))
+PORT = int(os.environ.get("PORT", 5061))
 DB_PATH = os.getenv("DB_PATH", "./curator.db")
 
 # Bunny Stream API - PRIVATE Library (full videos)

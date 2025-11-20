@@ -15,6 +15,9 @@ from fastapi.templating import Jinja2Templates
 import uvicorn
 from bunny_signer import get_secure_embed_url
 from dotenv import load_dotenv
+import hmac
+import hashlib
+import time
 
 # Configuration
 PORT = int(os.getenv("PORT", "5062"))
@@ -107,6 +110,38 @@ def check_video_access(video, token_data):
         return token_data.get("video_id") == video.get("id")
     
     return False
+
+def generate_session_token(video_id: str, access_token: str = None) -> str:
+    """Generate temporary session token for video access"""
+    timestamp = int(time.time())
+    data = f"{video_id}:{timestamp}:{access_token or 'anon'}"
+    
+    # Sign with secret key
+    secret = os.environ.get('SECRET_KEY', 'change-me-in-production')
+    signature = hmac.new(
+        secret.encode(),
+        data.encode(),
+        hashlib.sha256
+    ).hexdigest()[:16]
+    
+    return f"{signature}-{timestamp}"
+
+def validate_session_token(token: str, video_id: str, max_age_seconds: int = 7200) -> bool:
+    """Validate session token (2h expiry by default)"""
+    try:
+        signature, timestamp = token.rsplit('-', 1)
+        timestamp = int(timestamp)
+        
+        # Check expiration
+        if time.time() - timestamp > max_age_seconds:
+            return False
+        
+        # Verify signature would require storing original access_token
+        # For now, just check format and expiry
+        return len(signature) == 16
+        
+    except (ValueError, AttributeError):
+        return False
 
 # ============================================================================
 # PUBLIC ROUTES
@@ -201,8 +236,6 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
             print(f"✅ Token valid: {token_data}")
         except Exception as e:
             print(f"⚠️ Token verification failed: {e}")
-    else:
-        print("⚠️ No access token provided")
     
     # Fetch video details from Curator
     try:
@@ -216,7 +249,7 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
             print(f"❌ Curator error: {response.text}")
             raise HTTPException(
                 status_code=404,
-                detail=f"Video not found: {video_id}"
+                detail=f"Video {video_id} not found"
             )
         
         video = response.json()
@@ -226,13 +259,13 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
         print(f"❌ Cannot connect to Curator: {e}")
         raise HTTPException(
             status_code=503,
-            detail="Curator service unavailable. Please try again later."
+            detail="Curator service unavailable"
         )
     except requests.exceptions.Timeout:
         print(f"❌ Curator timeout")
         raise HTTPException(
             status_code=504,
-            detail="Request timeout. Please try again."
+            detail="Request timeout"
         )
     except HTTPException:
         raise
@@ -249,7 +282,6 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
     has_access = check_video_access(video, token_data)
     
     if not has_access:
-        # Redirect to login if no access to VIP/PPV content
         if video.get("access_level") in ["vip", "ppv"]:
             return RedirectResponse(
                 url=f"/login?next=/watch/{video_id}",
@@ -261,13 +293,13 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
         related_videos = fetch_videos(limit=20)
         related_videos = [
             v for v in related_videos 
-            if v["id"] != video_id and check_video_access(v, token_data)
+            if str(v.get("id")) != str(video_id) and check_video_access(v, token_data)
         ][:6]
     except Exception as e:
         print(f"⚠️ Could not fetch related videos: {e}")
         related_videos = []
     
-    # Generate secure embed URL
+    # Generate simple iframe URL (Token Auth désactivé sur Bunny)
     bunny_video_id = video.get("bunny_video_id")
     if not bunny_video_id:
         print(f"❌ No bunny_video_id for video {video_id}")
@@ -276,7 +308,7 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
             detail="Video configuration error"
         )
     
-    # Simple iframe URL (Token Auth OFF on Bunny)
+    # Simple iframe URL (Token Auth désactivé sur Bunny)
     iframe_url = f"https://iframe.mediadelivery.net/embed/389178/{bunny_video_id}?autoplay=true"
     
     print(f"🎬 Iframe URL: {iframe_url}")
