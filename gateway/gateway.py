@@ -5,7 +5,7 @@ import threading
 import time
 from datetime import datetime
 from typing import Optional, Dict, Any
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from dotenv import load_dotenv
 import requests
 from tenacity import retry, wait_fixed, stop_after_attempt
@@ -202,37 +202,58 @@ def index():
 
 
 @app.post("/event")
-async def receive_event(req: Request):
-    """Reçoit des événements du Curator Bot"""
-    data = await req.json()
-    event = data.get("event")
-    file_path = data.get("file")
-    
-    if event != "new_video" or not file_path:
-        return {"ok": False, "error": "bad payload"}
-    
-    existing = get_job_by_file(file_path)
-    if existing:
-        if existing["status"] in ("running", "queued"):
+async def create_event(request: Request):
+    """Create new job from event"""
+    try:
+        data = await request.json()
+        
+        # ✅ FIX: Log payload reçu pour debug
+        print(f"📦 Received payload: {data}")
+        
+        # ✅ FIX: Validation flexible des champs
+        event_type = data.get("event")
+        file_path = data.get("file")
+        
+        if not event_type or not file_path:
+            print(f"❌ Missing fields. event={event_type}, file={file_path}")
             return {
-                "ok": True,
-                "message": "already in progress",
-                "job_id": existing["id"],
-                "status": existing["status"]
+                "ok": False,
+                "error": "Missing required fields: 'event' and 'file' are required"
             }
-        if existing["status"] == "done":
-            return {
-                "ok": True,
-                "message": "already processed",
-                "job_id": existing["id"],
-                "status": "done",
-                "link": existing["link"]
-            }
-    
-    job_id = insert_job(file_path)
-    print(f"[Gateway] enqueued job #{job_id} for {file_path}")
-    
-    return {"ok": True, "enqueued_job_id": job_id}
+        
+        # Champs optionnels
+        title = data.get("title", "Untitled")
+        timestamp = data.get("timestamp")
+        
+        # Créer job ID unique
+        import uuid
+        job_id = str(uuid.uuid4())
+        
+        # Insérer dans DB
+        import time
+        db_conn = db()
+        db_conn.execute("""
+            INSERT INTO jobs (id, file, title, status, timestamp, created_at)
+            VALUES (?, ?, ?, 'queued', ?, ?)
+        """, (job_id, file_path, title, timestamp or time.time(), time.time()))
+        db_conn.commit()
+        
+        print(f"✅ Job created: {job_id}")
+        
+        return {
+            "ok": True,
+            "job_id": job_id,
+            "message": f"Job queued: {title}"
+        }
+        
+    except json.JSONDecodeError as e:
+        print(f"❌ Invalid JSON: {e}")
+        return {"ok": False, "error": "Invalid JSON payload"}
+    except Exception as e:
+        print(f"❌ Error creating job: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"ok": False, "error": str(e)}
 
 
 @app.get("/jobs")
