@@ -95,6 +95,28 @@
                 </a>
             </div>
         </section>
+
+        <!-- Dashboard header -->
+        <div class="dashboard-header" style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        ">
+            <h1>ONLY Dashboard</h1>
+            
+            <!-- Indicateur environnement -->
+            <div style="
+                background: {{ '#ff9800' if environment == 'local' else '#4caf50' }};
+                color: {{ '#000' if environment == 'local' else '#fff' }};
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 16px;
+            ">
+                {{ '🏠 MODE LOCAL' if environment == 'local' else '🌐 MODE PRODUCTION' }}
+            </div>
+        </div>
     </div>
 
     <script src="/static/js/main.js"></script>

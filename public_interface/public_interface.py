@@ -28,6 +28,10 @@ app = FastAPI(title="ONLY - Public Interface", version="1.0.0")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+# Détection environnement
+ENVIRONMENT = os.environ.get('ENVIRONMENT', 'local')
+IS_PRODUCTION = ENVIRONMENT == 'production'
+
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
@@ -136,7 +140,9 @@ async def home(request: Request, access_token: str = Cookie(None)):
         "category_carousels": category_carousels,
         "recent_videos": recent_videos,
         "is_authenticated": token_data is not None,
-        "is_vip": token_data and token_data.get("access_level") == "vip"
+        "is_vip": token_data and token_data.get("access_level") == "vip",
+        "environment": ENVIRONMENT,  # Ajoute ça
+        "is_production": IS_PRODUCTION
     })
 
 @app.get("/browse", response_class=HTMLResponse)

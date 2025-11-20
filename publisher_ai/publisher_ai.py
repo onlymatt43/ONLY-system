@@ -243,7 +243,13 @@ async def health():
         "status": "healthy",
         "service": "publisher_ai",
         "port": PORT,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
+        "integrations": {
+            "email": bool(os.environ.get("SMTP_SERVER")),
+            "telegram": bool(os.environ.get("TELEGRAM_BOT_TOKEN")),
+            "twitter": bool(os.environ.get("X_BEARER_USER")),
+            "instagram": bool(os.environ.get("IG_ACCESS_TOKEN"))
+        }
     }
 
 

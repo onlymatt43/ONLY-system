@@ -208,6 +208,25 @@ def list_tokens(limit: int = 100):
     
     return {"ok": True, "tokens": tokens}
 
+@app.get("/health")
+async def health():
+    """Health check endpoint"""
+    try:
+        # Test Turso connection
+        client = db()
+        result = client.execute("SELECT 1")
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+    
+    return {
+        "status": "healthy",
+        "service": "monetizer_ai",
+        "port": PORT,
+        "database": db_status,
+        "timestamp": datetime.now().isoformat()
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=PORT)

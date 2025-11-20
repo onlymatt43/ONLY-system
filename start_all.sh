@@ -3,8 +3,26 @@
 # 🚀 Démarre tous les services ONLY en arrière-plan
 # Utilise tmux pour gérer les sessions
 
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🚀 Démarrage du système ONLY"
-echo "============================="
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "🏠 ENVIRONNEMENT: LOCAL"
+echo ""
+echo "📍 URLs locales:"
+echo "  • Public Interface : http://localhost:5062"
+echo "  • Web Interface    : http://localhost:5000"
+echo "  • Sentinel         : http://localhost:5059"
+echo ""
+echo "⚠️  Si tu veux tester PRODUCTION, va sur:"
+echo "  • https://only-public.onrender.com"
+echo ""
+read -p "Continuer en LOCAL ? (Y/n) " -n 1 -r
+echo ""
+if [[ ! $REPLY =~ ^[Yy]$ ]] && [[ ! -z $REPLY ]]; then
+    echo "❌ Annulé"
+    exit 1
+fi
 echo ""
 
 # Vérifier si tmux est installé
