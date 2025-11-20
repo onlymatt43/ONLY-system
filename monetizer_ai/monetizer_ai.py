@@ -6,11 +6,18 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 
+# ✅ FIX: Charge .env racine en plus de local
 load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+
+# Turso config
+TURSO_DATABASE_URL = os.environ.get("TURSO_DATABASE_URL")
+TURSO_AUTH_TOKEN = os.environ.get("TURSO_AUTH_TOKEN")
+
+if not TURSO_DATABASE_URL or not TURSO_AUTH_TOKEN:
+    raise ValueError("❌ TURSO_DATABASE_URL et TURSO_AUTH_TOKEN requis dans .env")
 
 PORT            = int(os.getenv("PORT","5060"))
-TURSO_URL       = os.getenv("TURSO_DATABASE_URL")
-TURSO_TOKEN     = os.getenv("TURSO_AUTH_TOKEN")
 SECRET_KEY      = os.getenv("SECRET_KEY","change-me-super-long-secret")
 CODE_PREFIX     = os.getenv("CODE_PREFIX","OM43")
 
@@ -27,10 +34,10 @@ def db():
     global _client
     if not _client:
         # Force HTTPS mode instead of WebSocket
-        url = TURSO_URL
+        url = TURSO_DATABASE_URL
         if url and url.startswith("libsql://"):
             url = url.replace("libsql://", "https://")
-        _client = create_client_sync(url=url, auth_token=TURSO_TOKEN)
+        _client = create_client_sync(url=url, auth_token=TURSO_AUTH_TOKEN)
     return _client
 
 def init_db():

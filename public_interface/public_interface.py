@@ -14,23 +14,34 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import uvicorn
 from bunny_signer import get_secure_embed_url
+from dotenv import load_dotenv
 
 # Configuration
 PORT = int(os.getenv("PORT", "5062"))
-CURATOR_URL = os.getenv("CURATOR_URL", "http://localhost:5061")
-MONETIZER_URL = os.getenv("MONETIZER_URL", "http://localhost:5060")
-GATEWAY_URL = os.getenv("GATEWAY_URL", "http://localhost:5055")
+
+# ✅ FIX: Charge .env depuis racine projet ET dossier courant
+load_dotenv()  # Charge .env dossier courant
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))  # Charge .env racine
+
+# Environment detection
+ENVIRONMENT = os.environ.get('ENVIRONMENT', 'local')
+IS_PRODUCTION = ENVIRONMENT == 'production'
+
+# Service URLs
+CURATOR_URL = os.environ.get('CURATOR_URL', 'http://localhost:5061')
+MONETIZER_URL = os.environ.get('MONETIZER_URL', 'http://localhost:5060')
+
+# Bunny Security
 BUNNY_SECURITY_KEY = os.environ.get('BUNNY_SECURITY_KEY')
+
+if not BUNNY_SECURITY_KEY:
+    print("⚠️ BUNNY_SECURITY_KEY non configurée")
 
 app = FastAPI(title="ONLY - Public Interface", version="1.0.0")
 
 # Static files & templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
-
-# Détection environnement
-ENVIRONMENT = os.environ.get('ENVIRONMENT', 'local')
-IS_PRODUCTION = ENVIRONMENT == 'production'
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -185,8 +196,11 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
     # Verify token
     token_data = None
     if access_token:
-        token_data = verify_token(access_token)
-        print(f"✅ Token valid: {token_data}")
+        try:
+            token_data = verify_token(access_token)
+            print(f"✅ Token valid: {token_data}")
+        except Exception as e:
+            print(f"⚠️ Token verification failed: {e}")
     else:
         print("⚠️ No access token provided")
     
@@ -195,43 +209,83 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
         curator_url = f"{CURATOR_URL}/videos/{video_id}"
         print(f"📡 Fetching from: {curator_url}")
         
-        response = requests.get(curator_url, timeout=5)
+        response = requests.get(curator_url, timeout=10)
         print(f"📊 Curator response: {response.status_code}")
         
         if response.status_code != 200:
             print(f"❌ Curator error: {response.text}")
-            raise HTTPException(status_code=404, detail=f"Video not found: {video_id}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Video not found: {video_id}"
+            )
         
         video = response.json()
         print(f"✅ Video found: {video.get('title', 'N/A')}")
         
     except requests.exceptions.ConnectionError as e:
         print(f"❌ Cannot connect to Curator: {e}")
-        raise HTTPException(status_code=503, detail="Curator service unavailable")
+        raise HTTPException(
+            status_code=503,
+            detail="Curator service unavailable. Please try again later."
+        )
+    except requests.exceptions.Timeout:
+        print(f"❌ Curator timeout")
+        raise HTTPException(
+            status_code=504,
+            detail="Request timeout. Please try again."
+        )
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"❌ Error fetching video: {e}")
-        raise HTTPException(status_code=404, detail=f"Video not found: {video_id}")
+        print(f"❌ Unexpected error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal error: {str(e)}"
+        )
     
     # Check access
     has_access = check_video_access(video, token_data)
     
     if not has_access:
-        # Redirect to login if no access (and not VIP/PPV)
-        return RedirectResponse(url=f"/login?next=/watch/{video_id}", status_code=303)
+        # Redirect to login if no access to VIP/PPV content
+        if video.get("access_level") in ["vip", "ppv"]:
+            return RedirectResponse(
+                url=f"/login?next=/watch/{video_id}",
+                status_code=303
+            )
     
-    # ✅ Génère token temporaire lié à cette session
-    session_token = generate_session_token(video_id, access_token)
+    # Fetch related videos
+    try:
+        related_videos = fetch_videos(limit=20)
+        related_videos = [
+            v for v in related_videos 
+            if v["id"] != video_id and check_video_access(v, token_data)
+        ][:6]
+    except Exception as e:
+        print(f"⚠️ Could not fetch related videos: {e}")
+        related_videos = []
     
-    # URL iframe avec token de SESSION (pas token Bunny)
-    iframe_url = f"https://only-public.onrender.com/stream/{video_id}?st={session_token}"
+    # Generate secure embed URL
+    bunny_video_id = video.get("bunny_video_id")
+    if not bunny_video_id:
+        print(f"❌ No bunny_video_id for video {video_id}")
+        raise HTTPException(
+            status_code=500,
+            detail="Video configuration error"
+        )
     
-    # Tu construis les URLs d'embed Bunny
-    secure_embed_url = f"https://iframe.mediadelivery.net/embed/389178/{video['bunny_video_id']}?autoplay=true"
+    # Simple iframe URL (Token Auth OFF on Bunny)
+    iframe_url = f"https://iframe.mediadelivery.net/embed/389178/{bunny_video_id}?autoplay=true"
+    
+    print(f"🎬 Iframe URL: {iframe_url}")
     
     return templates.TemplateResponse("watch.html", {
         "request": request,
         "video": video,
         "iframe_url": iframe_url,
+        "related_videos": related_videos,
         "is_authenticated": token_data is not None,
         "is_vip": token_data and token_data.get("access_level") == "vip"
     })

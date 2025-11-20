@@ -71,10 +71,6 @@ test_service "Sentinel Dashboard" "http://localhost:5059/"
 total=$((total + 1))
 [ $? -eq 0 ] && passed=$((passed + 1))
 
-echo ""
-echo "🌐 Web Interface"
-echo "----------------"
-
 # Test 6: Web Interface
 test_service "Web Interface Home" "http://localhost:5000/"
 total=$((total + 1))
@@ -87,10 +83,6 @@ total=$((total + 1))
 test_service "Web Interface API Jobs" "http://localhost:5000/api/jobs"
 total=$((total + 1))
 [ $? -eq 0 ] && passed=$((passed + 1))
-
-echo ""
-echo "🧪 Tests Fonctionnels"
-echo "---------------------"
 
 # Test 7: Créer un job test
 echo -n "Testing Job Creation... "
@@ -128,6 +120,11 @@ else
     echo -e "${RED}✗ FAIL${NC}"
     total=$((total + 1))
 fi
+
+# Test 9: Curator Bot
+test_service "Curator Bot" "http://localhost:5061/health"
+total=$((total + 1))
+[ $? -eq 0 ] && passed=$((passed + 1))
 
 # Résumé
 echo ""

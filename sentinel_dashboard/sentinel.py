@@ -14,7 +14,9 @@ from sentinel_ai import SentinelAI
 
 load_dotenv()
 
-PORT = int(os.getenv("PORT", "5059"))
+# ✅ FIX: Port cohérent
+PORT = int(os.environ.get("PORT", 5059))  # 5059 en local, 10000 sur Render
+
 REFRESH_SEC = int(os.getenv("REFRESH_SEC", "5"))
 MONITOR_INTERVAL = int(os.getenv("MONITOR_INTERVAL_SEC", "30"))  # AI monitoring cycle
 

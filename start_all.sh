@@ -63,6 +63,12 @@ tmux send-keys -t $SESSION:4 "cd web_interface && source venv/bin/activate 2>/de
 tmux new-window -t $SESSION -n "sentinel"
 tmux send-keys -t $SESSION:5 "cd sentinel_dashboard && source venv/bin/activate 2>/dev/null || true && python3 sentinel.py" C-m
 
+# ✅ FIX: Charge .env global avant de démarrer services
+if [ -f .env ]; then
+    echo "📦 Chargement variables d'environnement..."
+    export $(grep -v '^#' .env | xargs)
+fi
+
 # ✅ FIX: Ajoute Curator Bot
 # Fenêtre 7: Curator Bot
 tmux new-window -t $SESSION -n "curator"
