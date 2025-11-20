@@ -30,9 +30,10 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))  # Charge .en
 ENVIRONMENT = os.environ.get('ENVIRONMENT', 'local')
 IS_PRODUCTION = ENVIRONMENT == 'production'
 
-# Service URLs
+# ✅ FIX: Service URLs avec defaults
 CURATOR_URL = os.environ.get('CURATOR_URL', 'http://localhost:5061')
 MONETIZER_URL = os.environ.get('MONETIZER_URL', 'http://localhost:5060')
+GATEWAY_URL = os.environ.get('GATEWAY_URL', 'http://localhost:5055')  # ✅ AJOUTÉ
 
 # Bunny Security
 BUNNY_SECURITY_KEY = os.environ.get('BUNNY_SECURITY_KEY')
