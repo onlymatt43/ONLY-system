@@ -425,8 +425,21 @@ async def mint_token(request: Request):
             json=data,
             timeout=10
         )
-        response.raise_for_status()
-        return response.json()
+        try:
+            response.raise_for_status()
+        except Exception as e:
+            print(f"❌ Monetizer error status: {response.status_code} - {response.text}")
+            raise HTTPException(status_code=502, detail=f"Monetizer error: {response.status_code}")
+
+        try:
+            return response.json()
+        except ValueError:
+            # Non-JSON response — return a helpful error
+            print(f"❌ Monetizer returned non-JSON: {response.text}")
+            raise HTTPException(status_code=502, detail="Monetizer returned invalid response")
+    except HTTPException:
+        # Allow HTTPExceptions raised above to propagate with their status
+        raise
     except Exception as e:
         print(f"❌ Error minting token: {e}")
         raise HTTPException(status_code=500, detail=str(e))

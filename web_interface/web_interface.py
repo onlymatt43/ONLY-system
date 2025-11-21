@@ -184,7 +184,18 @@ async def mint_token(request: Request):
     data = await request.json()
     try:
         r = requests.post(f"{MONETIZER_URL}/mint", json=data, timeout=10)
-        return r.json()
+        # Raise for HTTP errors (4xx/5xx)
+        try:
+            r.raise_for_status()
+        except Exception as e:
+            # Return standardized error message so UI can show it
+            return {"ok": False, "error": f"Monetizer responded with status {r.status_code}: {r.text}"}
+
+        # Try to parse JSON, but handle cases where Monetizer returns empty body
+        try:
+            return r.json()
+        except ValueError:
+            return {"ok": False, "error": "Monetizer returned non-JSON response", "text": r.text}
     except Exception as e:
         return {"error": str(e)}
 
