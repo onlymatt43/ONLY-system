@@ -35,13 +35,22 @@ async function mintToken() {
                 } catch (e) {
                     errText = await response.text();
                 }
-                alert(`❌ Monetizer error: ${errText || response.status}`);
+                // Show error inline
+                const errDiv = document.getElementById('mintError');
+                if (errDiv) {
+                    errDiv.classList.remove('hidden');
+                    errDiv.textContent = `Erreur Monetizer: ${errText || response.status}`;
+                }
                 throw new Error(`HTTP ${response.status} - ${errText}`);
             }
 
             const result = await response.json();
             if (result && result.ok === false) {
-                alert(`❌ Monetizer error: ${result.error || result.detail || JSON.stringify(result)}`);
+                const errDiv = document.getElementById('mintError');
+                if (errDiv) {
+                    errDiv.classList.remove('hidden');
+                    errDiv.textContent = result.error || result.detail || JSON.stringify(result);
+                }
                 throw new Error('Mint failed');
             }
         
@@ -67,6 +76,11 @@ async function mintToken() {
         }
     } catch (error) {
         resultDiv.innerHTML = `<p style="color: var(--error);">❌ Erreur: ${error.message}</p>`;
+        const errDiv = document.getElementById('mintError');
+        if (errDiv && !errDiv.textContent) {
+            errDiv.classList.remove('hidden');
+            errDiv.textContent = error.message || 'Erreur inconnue';
+        }
     }
 }
 

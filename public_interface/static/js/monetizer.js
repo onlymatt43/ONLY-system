@@ -105,13 +105,22 @@ function setupCreateForm() {
                 } catch (e) {
                     errText = await response.text();
                 }
-                alert(`❌ Monetizer error: ${errText || response.status}`);
+                // Show error message inline instead of only alert
+                const errDiv = document.getElementById('mintError');
+                if (errDiv) {
+                    errDiv.classList.remove('hidden');
+                    errDiv.textContent = `Erreur Monetizer: ${errText || response.status}`;
+                }
                 throw new Error(`HTTP ${response.status} - ${errText}`);
             }
 
             const result = await response.json();
             if (result && result.ok === false) {
-                alert(`❌ Monetizer error: ${result.error || result.detail || JSON.stringify(result)}`);
+                const errDiv = document.getElementById('mintError');
+                if (errDiv) {
+                    errDiv.classList.remove('hidden');
+                    errDiv.textContent = result.error || result.detail || JSON.stringify(result);
+                }
                 throw new Error('Mint failed');
             }
             
@@ -123,7 +132,11 @@ function setupCreateForm() {
             
         } catch (error) {
             console.error('Failed to create token:', error);
-            alert('❌ Failed to create token. Check console for details.');
+            const errDiv = document.getElementById('mintError');
+            if (errDiv) {
+                errDiv.classList.remove('hidden');
+                if (!errDiv.textContent) errDiv.textContent = 'Erreur: Impossible de créer le token';
+            }
         }
     });
 }
