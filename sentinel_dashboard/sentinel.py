@@ -1,7 +1,7 @@
 import os
 import time
 import threading
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, Request, Body
 from fastapi.responses import HTMLResponse, JSONResponse
 from dotenv import load_dotenv
@@ -273,14 +273,19 @@ class SentinelAutoFix:
         video_403 = self._check_video_403()
         if video_403:
             results["issues_found"].append(video_403)
-            
+
             # Auto-fix si possible
             fix = self._fix_video_403()
-            if fix["auto_fixed"]:
+            if fix and fix.get("auto_fixed"):
                 results["fixes_applied"].append(fix)
             else:
                 results["action_required"].append(fix)
         
+        # 1b. Check Bunny allowed referrers and embed signing
+        bunny_ref = self._check_bunny_referrers()
+        if bunny_ref:
+            results["issues_found"].append(bunny_ref)
+
         # 2. Check services down
         services_down = self._check_services()
         results["issues_found"].extend(services_down)
@@ -291,7 +296,7 @@ class SentinelAutoFix:
         
         return results
     
-    def _check_video_403(self) -> dict:
+    def _check_video_403(self) -> Optional[dict]:
         """Vérifie si vidéos retournent 403"""
         try:
             # Test une vidéo
@@ -299,20 +304,90 @@ class SentinelAutoFix:
                 "https://only-public.onrender.com/watch/121",
                 timeout=5
             )
-            
             if "403" in response.text or response.status_code == 403:
                 return {
-                    "type": "VIDEO_403",
-                    "severity": "CRITICAL",
-                    "message": "Les vidéos retournent 403 Forbidden",
-                    "detected_at": datetime.now().isoformat()
-                }
+                        "type": "VIDEO_403",
+                        "severity": "CRITICAL",
+                        "message": "Les vidéos retournent 403 Forbidden",
+                        "detected_at": datetime.now().isoformat()
+                    }
         except:
             pass
         
         return None
+
+    def _check_bunny_referrers(self) -> Optional[dict]:
+        """Verify Bunny Allowed Referrers by testing embeds with referer headers.
+
+        Returns a diagnostic dict if it finds problems.
+        """
+        try:
+            # Try to pick a private video to test
+            r = requests.get(f"{CURATOR_URL}/videos?library=private&limit=1", timeout=5)
+            r.raise_for_status()
+            items = r.json()
+            if not items:
+                return {
+                    "type": "BUNNY_REFERRERS",
+                    "severity": "LOW",
+                    "message": "No private videos found to test Bunny referer rules",
+                    "details": {}
+                }
+
+            video = items[0]
+            bunny_guid = video.get("bunny_video_id")
+            library_id = os.environ.get('BUNNY_PRIVATE_LIBRARY_ID', '389178')
+
+            embed_base = f"https://iframe.mediadelivery.net/embed/{library_id}/{bunny_guid}"
+
+            # Test allowed referer
+            allowed_headers = {"Referer": PUBLIC_URL}
+            allowed_resp = requests.get(embed_base, headers=allowed_headers, timeout=5)
+
+            # Test disallowed referer
+            disallowed_headers = {"Referer": "https://evil.example/"}
+            disallowed_resp = requests.get(embed_base, headers=disallowed_headers, timeout=5)
+
+            issues = []
+            if allowed_resp.status_code != 200:
+                issues.append("Allowed referer returned non-200; check Allowed Referrers in Bunny dashboard")
+
+            if disallowed_resp.status_code == 200:
+                issues.append("Disallowed referer can access embed; update Bunny Allowed Referrers to restrict domains")
+
+            # Verify signed url produced by /api/embed
+            embed_api = f"{PUBLIC_URL}/api/embed/{video.get('id')}"
+            embed_api_resp = requests.get(embed_api, timeout=5)
+            token_present = False
+            if embed_api_resp.status_code == 200:
+                try:
+                    data = embed_api_resp.json()
+                    url = data.get('embed_url', '')
+                    token_present = 'token=' in url or 'expires=' in url
+                except:
+                    pass
+
+            if not token_present and video.get('library_type') == 'private':
+                issues.append('API /api/embed did not return signed token for private video')
+
+            if issues:
+                return {
+                    "type": "BUNNY_REFERRERS",
+                    "severity": "CRITICAL" if any('Disallowed' in i for i in issues) else "HIGH",
+                    "message": "Bunny embed referer rules or token signing issues detected",
+                    "details": issues
+                }
+
+            return None
+        except Exception as e:
+            return {
+                "type": "BUNNY_REFERRERS",
+                "severity": "MEDIUM",
+                "message": f"Error testing bunny referers: {e}",
+                "details": {}
+            }
     
-    def _fix_video_403(self) -> dict:
+    def _fix_video_403(self) -> Optional[dict]:
         """Tente de corriger le 403 automatiquement"""
         
         # Check si BUNNY_SECURITY_KEY existe

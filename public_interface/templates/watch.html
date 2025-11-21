@@ -56,11 +56,18 @@
     <!-- Video Player -->
     <div class="watch-container">
         <div class="om-video-card">
-            <iframe 
-                src="{{ secure_embed_url }}"
+            {% if related_videos is not none %}
+            <iframe id="videoPlayer"
+                src="about:blank"
                 allow="autoplay; encrypted-media; picture-in-picture"
                 allowfullscreen>
             </iframe>
+            {% else %}
+            <div class="restricted-access">
+                <p>Accès restreint — cette vidéo nécessite une connexion ou un abonnement.</p>
+                <a class="btn-login" href="/login?next=/watch/{{ video.id }}">Se connecter</a>
+            </div>
+            {% endif %}
         </div>
 
         <!-- Video Info -->
@@ -123,5 +130,22 @@
 
     <!-- Bunny Stream embed - no extra JS needed! -->
     <script src="/static/js/public.js"></script>
+    <script>
+    // Fetch signed embed if available via server API
+    (async function() {
+        try {
+            const res = await fetch(`/api/embed/{{ video.id }}`);
+            const json = await res.json();
+            if (res.ok && json.embed_url) {
+                document.getElementById('videoPlayer').src = json.embed_url;
+            } else {
+                console.warn('No embed url or access denied', json);
+                // Show a friendly message or redirect to login
+            }
+        } catch (e) {
+            console.error('Error loading embed:', e);
+        }
+    })();
+    </script>
 </body>
 </html>

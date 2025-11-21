@@ -1,4 +1,3 @@
-# filepath: /Users/mathieucourchesne/ONLY-system-1/public_interface/public_interface.py
 #!/usr/bin/env python3
 """
 PUBLIC INTERFACE - ONLY System
@@ -8,11 +7,14 @@ Port: 5062
 
 import os
 import requests
-from datetime import datetime
 from fastapi import FastAPI, Request, HTTPException, Cookie
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import PlainTextResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from typing import Optional
+from public_interface.bunny_signer import get_secure_embed_url
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+from datetime import datetime
 import uvicorn
 from dotenv import load_dotenv
 import hmac
@@ -35,13 +37,31 @@ CURATOR_URL = os.environ.get('CURATOR_URL', 'http://localhost:5061')
 MONETIZER_URL = os.environ.get('MONETIZER_URL', 'http://localhost:5060')
 GATEWAY_URL = os.environ.get('GATEWAY_URL', 'http://localhost:5055')
 
-# Bunny Security
 BUNNY_SECURITY_KEY = os.environ.get('BUNNY_SECURITY_KEY')
+BUNNY_PRIVATE_LIBRARY_ID = os.environ.get('BUNNY_PRIVATE_LIBRARY_ID', '389178')
+BUNNY_PUBLIC_LIBRARY_ID = os.environ.get('BUNNY_PUBLIC_LIBRARY_ID', '420867')
 
 if not BUNNY_SECURITY_KEY:
     print("⚠️ BUNNY_SECURITY_KEY non configurée")
 
 app = FastAPI(title="ONLY - Public Interface", version="1.0.0")
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add common security headers for all responses"""
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer-when-downgrade"
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+    # Content-Security-Policy: allow iframes from Bunny embed CDN, and limit who can embed this site
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "frame-src https://iframe.mediadelivery.net 'self'; "
+        "frame-ancestors 'self' https://only-public.onrender.com"
+    )
+    return response
 
 # Static files & templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -51,7 +71,7 @@ templates = Jinja2Templates(directory="templates")
 # HELPER FUNCTIONS
 # ============================================================================
 
-def generate_session_token(video_id: str, access_token: str = None) -> str:
+def generate_session_token(video_id: str, access_token: Optional[str] = None) -> str:
     """Generate temporary session token for video access"""
     timestamp = int(time.time())
     data = f"{video_id}:{timestamp}:{access_token or 'anon'}"
@@ -90,7 +110,12 @@ def fetch_videos(category_id=None, tag_id=None, limit=50):
         
         response = requests.get(f"{CURATOR_URL}/videos", params=params, timeout=5)
         response.raise_for_status()
-        return response.json()
+        results = response.json()
+        # Normalize for templates: ensure each video has a 'video_id' alias
+        for v in results:
+            if 'video_id' not in v and 'bunny_video_id' in v:
+                v['video_id'] = v.get('bunny_video_id')
+        return results
     except Exception as e:
         print(f"Error fetching videos: {e}")
         return []
@@ -211,12 +236,40 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
     bunny_video_id = video.get("bunny_video_id")
     if not bunny_video_id:
         print(f"❌ No bunny_video_id for video {video_id}")
-        raise HTTPException(status_code=500, detail="Video configuration error")
-    
-    iframe_url = f"https://iframe.mediadelivery.net/embed/389178/{bunny_video_id}?autoplay=true"
-    
+    # Determine library type and pick library id
+    library_type = video.get("library_type", "private")
+    library_id = BUNNY_PUBLIC_LIBRARY_ID if library_type == "public" else BUNNY_PRIVATE_LIBRARY_ID
+
+    # Build signed embed URL for private library or plain embed for public
+    secure_embed_url = None
+    try:
+        if library_type == "private":
+            # Use a security key to produce a signed URL (Bunny token auth)
+            secure_embed_url = get_secure_embed_url(
+                library_id=int(library_id),
+                video_id=bunny_video_id,
+                security_key=BUNNY_SECURITY_KEY,
+                autoplay=True
+            )
+        else:
+            secure_embed_url = f"https://iframe.mediadelivery.net/embed/{library_id}/{bunny_video_id}?autoplay=true"
+    except Exception as e:
+        print(f"⚠️ Error generating secure embed url: {e}")
+        secure_embed_url = f"https://iframe.mediadelivery.net/embed/{BUNNY_PRIVATE_LIBRARY_ID}/{bunny_video_id}?autoplay=true"
+    # Keep a fallback iframe URL (private library default). Public URL provided for clarity below
+    iframe_url = f"https://iframe.mediadelivery.net/embed/{library_id}/{bunny_video_id}?autoplay=true"
     print(f"🎬 Iframe URL: {iframe_url}")
-    
+    # Normalize video object for template
+    video["video_id"] = video.get("bunny_video_id")
+    video["cdn_hostname"] = video.get("cdn_hostname") or ""
+
+    # Map related video fields
+    for rv in related_videos:
+        if "video_id" not in rv and "bunny_video_id" in rv:
+            rv["video_id"] = rv.get("bunny_video_id")
+        if "cdn_hostname" not in rv:
+            rv["cdn_hostname"] = rv.get("cdn_hostname") or ""
+
     return templates.TemplateResponse("watch.html", {
         "request": request,
         "video": video,
@@ -225,6 +278,51 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
         "is_authenticated": token_data is not None,
         "is_vip": token_data and token_data.get("access_level") == "vip"
     })
+
+
+@app.get("/api/embed/{video_id}")
+async def api_embed(request: Request, video_id: int, access_token: str = Cookie(None)):
+    """Return signed embed URL for a video if the caller has access.
+
+    This endpoint hides the `BUNNY_SECURITY_KEY` and only returns the signed
+    url after verifying the user's access (via Monetizer), or immediately
+    for public videos.
+    """
+    # Verify token (optional)
+    token_data = None
+    if access_token:
+        token_data = verify_token(access_token)
+
+    # Fetch video metadata from Curator
+    resp = requests.get(f"{CURATOR_URL}/videos/{video_id}", timeout=10)
+    if resp.status_code != 200:
+        return JSONResponse({"ok": False, "error": "video_not_found"}, status_code=404)
+
+    video = resp.json()
+
+    # Access control
+    if not check_video_access(video, token_data):
+        # If no token and access restricted, instruct to login
+        return JSONResponse({"ok": False, "error": "access_denied"}, status_code=401)
+
+    bunny_video_id = video.get("bunny_video_id")
+    if not bunny_video_id:
+        return JSONResponse({"ok": False, "error": "video_configuration_error"}, status_code=500)
+
+    library_type = video.get("library_type", "private")
+    library_id = BUNNY_PUBLIC_LIBRARY_ID if library_type == "public" else BUNNY_PRIVATE_LIBRARY_ID
+
+    # Generate signed URL for private library
+    try:
+        if library_type == "private":
+            signed_url = get_secure_embed_url(library_id=int(library_id), video_id=bunny_video_id, security_key=BUNNY_SECURITY_KEY, autoplay=True)
+        else:
+            signed_url = f"https://iframe.mediadelivery.net/embed/{library_id}/{bunny_video_id}?autoplay=true"
+    except Exception as e:
+        print(f"❌ Error generating signed url: {e}")
+        return JSONResponse({"ok": False, "error": "sign_error"}, status_code=500)
+
+    return JSONResponse({"ok": True, "embed_url": signed_url})
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
@@ -250,7 +348,8 @@ async def login(request: Request):
         value=token,
         httponly=True,
         max_age=30*24*60*60,
-        samesite="lax"
+        samesite="lax",
+        secure=IS_PRODUCTION
     )
     return response
 

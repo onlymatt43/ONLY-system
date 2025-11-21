@@ -64,6 +64,11 @@ Va sur https://dashboard.render.com et crée **5 Web Services** :
    PUBLISHER_URL = https://only-publisher.onrender.com
    MONETIZER_URL = https://only-monetizer.onrender.com
    ```
+**NOTE:** If you enable Bunny Token Authentication for your private library (389178), add this env var to `only-public`:
+
+```
+BUNNY_SECURITY_KEY=your-bunny-security-key
+```
 
 5. Deploy
 

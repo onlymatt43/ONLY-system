@@ -58,6 +58,8 @@ Plateforme de contenu vidéo premium avec modèle freemium : previews publiques 
 - **CDN**: `vz-a3ab0733-842.b-cdn.net`
 - **Accès**: Token requis, URL signées
 - **Sécurité**: Token authentication ON, direct URL access blocked
+ 
+**NOTE**: Si Token Authentication est activé pour la private library (389178), ajoute la variable d'environnement `BUNNY_SECURITY_KEY` sur le service `only-public` (Render) et localement (`.env`) pour que la `public_interface` puisse générer des URLs signées via `bunny_signer.py`.
 
 ## 🚀 Développement Local
 

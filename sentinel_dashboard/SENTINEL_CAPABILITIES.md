@@ -27,6 +27,11 @@
 - **Status actuel**: ✅ PASS - HLS bloqué
 - **URL testée**: `https://vz-a3ab0733-842.b-cdn.net/.../playlist.m3u8` → 403
 
+#### Test 3b: Bunny Allowed Referrers
+- Vérifie que l'iframe exige un referer autorisé (`only-public.onrender.com`) et bloque l'accès depuis d'autres domaines
+- Vérifie aussi que `/api/embed/{id}` renvoie un `embed_url` signé pour les vidéos privées
+- **Status actuel**: ✅ PASS - Referer check & signed URL present
+
 #### Test 3: API Metadata Protégée ✅
 - Vérifie qu'aucune vidéo VIP n'est exposée dans `/api/videos`
 - **Status actuel**: ✅ PASS - Seulement vidéos publiques

@@ -495,6 +495,7 @@ async def get_video(video_id: int):
         "id": row[0],
         "title": row[1],
         "bunny_video_id": row[2],
+        "video_id": row[2],
         "duration": row[3],
         "thumbnail_url": row[4],
         "video_url": row[5],

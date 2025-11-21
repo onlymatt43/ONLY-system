@@ -1,14 +1,14 @@
-# filepath: /Users/mathieucourchesne/ONLY-system-1/public_interface/bunny_signer.py
 import os
 import hmac
 import hashlib
 import base64
 from datetime import datetime, timedelta
+from typing import Optional
 
 def get_secure_embed_url(
     library_id: int,
     video_id: str,
-    security_key: str = None,
+    security_key: Optional[str] = None,
     expires_in_hours: int = 2,
     autoplay: bool = True
 ) -> str:
