@@ -1,5 +1,17 @@
 from fastapi.testclient import TestClient
 from monetizer_ai.monetizer_turso import app
+import monetizer_ai.monetizer_turso as mt
+
+class DummyClient:
+    def execute(self, sql, params=None):
+        class R:
+            rows = []
+            last_insert_rowid = 1
+        return R()
+
+def setup_module(module):
+    # Monkeypatch db connection to avoid network calls for unit tests
+    mt._client = DummyClient()
 
 
 def test_mint_rate_limit():
