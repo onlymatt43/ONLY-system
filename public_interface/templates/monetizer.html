@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monetizer - Token Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+</head>
+<body>
+    <div class="monetizer-container">
+        <header class="monetizer-header">
+            <h1>💰 Token Management</h1>
+            <p>Create and manage access tokens</p>
+        </header>
+
+        <!-- Create Token Form -->
+        <section class="create-token-section">
+            <h2>Create New Token</h2>
+            <form id="createTokenForm">
+                <div class="form-group">
+                    <label for="title">Title</label>
+                    <input type="text" id="title" name="title" required placeholder="VIP Access Token">
+                </div>
+
+                <div class="form-group">
+                    <label for="accessLevel">Access Level</label>
+                    <select id="accessLevel" name="access_level" required>
+                        <option value="vip">VIP (Full Access)</option>
+                        <option value="premium">Premium</option>
+                        <option value="public">Public</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="durationDays">Duration (Days)</label>
+                    <input type="number" id="durationDays" name="duration_days" value="365" min="1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="videoId">Video ID (optional for PPV)</label>
+                    <input type="text" id="videoId" name="video_id" placeholder="Leave empty for all-access">
+                </div>
+
+                <button type="submit" class="btn-primary">Create Token</button>
+            </form>
+        </section>
+
+        <!-- Tokens List -->
+        <section class="tokens-list-section">
+            <h2>Active Tokens</h2>
+            <div id="tokensGrid" class="tokens-grid">
+                <!-- Tokens loaded dynamically -->
+                <p class="loading">Loading tokens...</p>
+            </div>
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', path='/js/monetizer.js') }}"></script>
+</body>
+</html>

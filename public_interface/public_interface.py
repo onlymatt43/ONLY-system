@@ -271,6 +271,54 @@ async def health():
         "timestamp": datetime.now().isoformat()
     }
 
+@app.get("/monetizer", response_class=HTMLResponse)
+async def monetizer_page(request: Request):
+    """Monetizer management page"""
+    return templates.TemplateResponse("monetizer.html", {"request": request})
+
+@app.get("/api/tokens")
+async def get_tokens():
+    """Get all tokens from Monetizer API"""
+    try:
+        response = requests.get(f"{MONETIZER_URL}/tokens", timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"❌ Error fetching tokens: {e}")
+        return {"tokens": [], "error": str(e)}
+
+@app.post("/api/tokens/mint")
+async def mint_token(request: Request):
+    """Create new token via Monetizer API"""
+    try:
+        data = await request.json()
+        response = requests.post(
+            f"{MONETIZER_URL}/mint",
+            json=data,
+            timeout=10
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"❌ Error minting token: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/tokens/revoke")
+async def revoke_token(request: Request):
+    """Revoke token via Monetizer API"""
+    try:
+        data = await request.json()
+        response = requests.post(
+            f"{MONETIZER_URL}/revoke",
+            json=data,
+            timeout=10
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"❌ Error revoking token: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     print(f"🌐 PUBLIC INTERFACE starting on port {PORT}...")
     print(f"🚪 Gateway: {GATEWAY_URL}")

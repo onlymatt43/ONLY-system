@@ -452,35 +452,61 @@ async def list_videos(
 
 @app.get("/videos/{video_id}")
 async def get_video(video_id: int):
-    """Get single video with full metadata"""
-    conn = db()
-    c = conn.cursor()
+    """Get specific video by ID"""
+    print(f"🔍 Fetching video {video_id}")
     
-    video = c.execute("SELECT * FROM videos WHERE id = ?", (video_id,)).fetchone()
-    if not video:
-        return JSONResponse({"error": "Video not found"}, status_code=404)
+    conn = get_db()
+    cursor = conn.cursor()
     
-    # Get categories
-    categories = c.execute("""
-        SELECT c.* FROM categories c
-        JOIN video_categories vc ON c.id = vc.category_id
-        WHERE vc.video_id = ?
-    """, (video_id,)).fetchall()
+    cursor.execute("""
+        SELECT id, title, bunny_video_id, duration, thumbnail_url,
+               video_url, cdn_hostname, access_level, library_type,
+               view_count, created_at
+        FROM videos
+        WHERE id = ?
+    """, (video_id,))
     
-    # Get tags
-    tags = c.execute("""
-        SELECT t.* FROM tags t
-        JOIN video_tags vt ON t.id = vt.tag_id
-        WHERE vt.video_id = ?
-    """, (video_id,)).fetchall()
+    row = cursor.fetchone()
     
-    conn.close()
+    if not row:
+        print(f"❌ Video {video_id} not found in database")
+        
+        # List available IDs for debugging
+        cursor.execute("SELECT COUNT(*) FROM videos")
+        total = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT id FROM videos ORDER BY id DESC LIMIT 10")
+        available = [r[0] for r in cursor.fetchall()]
+        
+        print(f"📊 Total videos in DB: {total}")
+        print(f"📋 Available video IDs (last 10): {available}")
+        
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": f"Video {video_id} not found",
+                "total_videos": total,
+                "sample_ids": available,
+                "hint": "Run POST /sync/bunny to import videos from Bunny Stream"
+            }
+        )
     
-    result = dict(video)
-    result["categories"] = [dict(c) for c in categories]
-    result["tags"] = [dict(t) for t in tags]
+    video = {
+        "id": row[0],
+        "title": row[1],
+        "bunny_video_id": row[2],
+        "duration": row[3],
+        "thumbnail_url": row[4],
+        "video_url": row[5],
+        "cdn_hostname": row[6],
+        "access_level": row[7],
+        "library_type": row[8],
+        "view_count": row[9],
+        "created_at": row[10]
+    }
     
-    return result
+    print(f"✅ Video found: {video['title']}")
+    return video
 
 
 @app.post("/categories")
