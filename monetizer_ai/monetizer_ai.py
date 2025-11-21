@@ -224,7 +224,6 @@ def list_tokens(limit: int = 100):
 async def health():
     """Health check endpoint"""
     try:
-        # Test Turso connection
         client = db()
         result = client.execute("SELECT 1")
         db_status = "connected"

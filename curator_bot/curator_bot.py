@@ -18,7 +18,6 @@ from typing import Dict, List, Optional, Any
 from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
-import logging
 
 # ✅ FIX: Charge .env global ET local
 load_dotenv()
@@ -45,9 +44,6 @@ BUNNY_CDN_HOSTNAME = BUNNY_PRIVATE_CDN_HOSTNAME
 BUNNY_API_BASE = f"https://video.bunnycdn.com/library/{BUNNY_LIBRARY_ID}"
 
 app = FastAPI(title="Curator Bot", version="1.0")
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Ensure DB directory exists
 os.makedirs(os.path.dirname(DB_PATH) if os.path.dirname(DB_PATH) else ".", exist_ok=True)
@@ -161,7 +157,6 @@ def init_db():
     
     conn.commit()
     conn.close()
-    logger.info(f"[DB] Initialized: {DB_PATH}")
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -206,7 +201,7 @@ def fetch_bunny_videos(page: int = 1, items_per_page: int = 100, library_type: s
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        logger.error(f"Error fetching Bunny videos ({library_type}): {e}")
+        print(f"Error fetching Bunny videos ({library_type}): {e}")
         return {"items": [], "totalItems": 0}
 
 
@@ -220,7 +215,7 @@ def get_bunny_video(video_id: str, library_type: str = "private") -> Optional[Di
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        logger.error(f"Error fetching Bunny video {video_id} ({library_type}): {e}")
+        print(f"Error fetching Bunny video {video_id} ({library_type}): {e}")
         return None
 
 
@@ -251,7 +246,7 @@ def upload_to_bunny(title: str, file_path: Optional[str] = None, library_type: s
         
         return video_data
     except Exception as e:
-        logger.error(f"Error uploading to Bunny ({library_type}): {e}")
+        print(f"Error uploading to Bunny ({library_type}): {e}")
         return None
 
 
@@ -348,7 +343,7 @@ def get_all_categories() -> List[Dict[str, Any]]:
 @app.on_event("startup")
 async def startup():
     init_db()
-    logger.info(f"[Curator Bot] Started on port {PORT}")
+    print(f"[Curator Bot] Started on port {PORT}")
 
 
 @app.get("/")
@@ -384,7 +379,7 @@ async def sync_bunny_videos(library_type: Optional[str] = None):
     results = {}
     
     for lib_type in libraries_to_sync:
-        logger.info(f"[Sync] Starting {lib_type.upper()} library sync...")
+        print(f"[Sync] Starting {lib_type.upper()} library sync...")
         lib_synced = 0
         page = 1
         
@@ -401,7 +396,7 @@ async def sync_bunny_videos(library_type: Optional[str] = None):
                     lib_synced += 1
                     total_synced += 1
                 except Exception as e:
-                    logger.error(f"Error syncing video {video.get('guid')} ({lib_type}): {e}")
+                    print(f"Error syncing video {video.get('guid')} ({lib_type}): {e}")
             
             # Check if more pages
             if len(videos) < 100:
@@ -409,9 +404,9 @@ async def sync_bunny_videos(library_type: Optional[str] = None):
             page += 1
         
         results[lib_type] = lib_synced
-        logger.info(f"[Sync] {lib_type.upper()} completed: {lib_synced} videos")
+        print(f"[Sync] {lib_type.upper()} completed: {lib_synced} videos")
     
-    logger.info(f"[Sync] Total synced: {total_synced} videos")
+    print(f"[Sync] Total synced: {total_synced} videos")
     return {"ok": True, "total_synced": total_synced, "details": results}
 
 

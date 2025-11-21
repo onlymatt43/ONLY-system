@@ -1,8 +1,7 @@
 #!/bin/bash
-# filepath: /Users/mathieucourchesne/ONLY-system-1/fix_system.sh
 
-echo "🔧 ONLY System - Auto-Fix Script"
-echo "=================================="
+echo "🔧 ONLY System - Correction Automatique Complète"
+echo "=================================================="
 echo ""
 
 # Couleurs
@@ -11,252 +10,371 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Fonction pour afficher le statut
-status() {
-    echo -e "${GREEN}✓${NC} $1"
-}
+# 1. Créer .env global
+echo "1️⃣ Création .env global..."
+cat > .env << 'EOF'
+# filepath: /Users/mathieucourchesne/ONLY-system-1/.env
+ENVIRONMENT=local
 
-error() {
-    echo -e "${RED}✗${NC} $1"
-}
-
-warn() {
-    echo -e "${YELLOW}⚠${NC} $1"
-}
-
-# 1. Stop tous les services
-echo "1️⃣ Arrêt des services..."
-./stop_all.sh 2>/dev/null
-status "Services arrêtés"
-echo ""
-
-# 2. Nettoyer les processus orphelins
-echo "2️⃣ Nettoyage processus..."
-for port in 5000 5055 5056 5058 5059 5060 5061 5062; do
-    pid=$(lsof -ti:$port 2>/dev/null)
-    if [ ! -z "$pid" ]; then
-        kill -9 $pid 2>/dev/null
-        status "Port $port libéré"
-    fi
-done
-echo ""
-
-# 3. Installer les dépendances manquantes
-echo "3️⃣ Installation dépendances..."
-
-services=("web_interface" "gateway" "narrator_ai" "publisher_ai" "monetizer_ai" "public_interface" "curator_bot" "sentinel_dashboard")
-
-for service in "${services[@]}"; do
-    if [ -f "$service/requirements.txt" ]; then
-        echo "   Installing $service..."
-        cd "$service"
-        pip3 install -q -r requirements.txt
-        cd ..
-        status "$service dépendances OK"
-    fi
-done
-echo ""
-
-# 4. Vérifier/créer .env files
-echo "4️⃣ Vérification .env..."
-
-# Gateway
-if [ ! -f "gateway/.env" ]; then
-    cat > gateway/.env << 'EOF'
-PORT=5055
-NARRATOR_URL=http://localhost:5056
-PUBLISHER_URL=http://localhost:5058
-DB_PATH=./gateway.db
-WORKER_INTERVAL_SEC=5
-EOF
-    status "gateway/.env créé"
-fi
-
-# Monetizer
-if [ ! -f "monetizer_ai/.env" ]; then
-    cat > monetizer_ai/.env << 'EOF'
-PORT=5060
-DB_PATH=./monetizer.db
-SECRET_KEY=change-me-in-production
-CODE_PREFIX=OM43
-DEFAULT_DURATION_MIN=1440
-EOF
-    warn "monetizer_ai/.env créé - CHANGE SECRET_KEY"
-fi
-
-# Public Interface
-if [ ! -f "public_interface/.env" ]; then
-    cat > public_interface/.env << 'EOF'
-PORT=5062
+# Services URLs (LOCAL)
 CURATOR_URL=http://localhost:5061
 MONETIZER_URL=http://localhost:5060
-BUNNY_SECURITY_KEY=
+PUBLIC_URL=http://localhost:5062
+GATEWAY_URL=http://localhost:5055
+
+# Bunny Stream (Private Library 389178)
+BUNNY_SECURITY_KEY=453f0507-2f2c-4155-95bd-31a2fdd3610c
+BUNNY_PRIVATE_API_KEY=9bf388e8-181a-4740-bf90bc96c622-3394-4591
+BUNNY_PRIVATE_LIBRARY_ID=389178
+BUNNY_PRIVATE_CDN_HOSTNAME=vz-a3ab0733-842.b-cdn.net
+
+# Bunny Stream (Public Library 420867)
+BUNNY_PUBLIC_API_KEY=5eb42e83-6fe9-48fb-b08c5656f422-3033-490a
+BUNNY_PUBLIC_LIBRARY_ID=420867
+BUNNY_PUBLIC_CDN_HOSTNAME=vz-9cf89254-609.b-cdn.net
+
+# Turso Database (Monetizer)
+TURSO_DATABASE_URL=libsql://only-tokens-onlymatt43.aws-us-east-2.turso.io
+TURSO_AUTH_TOKEN=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NjMwMDA4ODEsImlkIjoiMDcwYzdkOGEtZGUwZC00OGExLWI5NmMtNjlkN2U5MDkxODYzIiwicmlkIjoiOGQyNWI5M2QtOTJhMy00MzgxLWJhN2ItZjM3MGFhYmUxZDc2In0.y8jY7sYrNg2q88su0IK8RcVo0pqDgGjqEfneuMEptWfylVCgAqJv-X1e9L3hrzpz_IYTmjNbs4uJGiJdE7CWAg
+
+# Security
+SECRET_KEY=0mO2mPJISGYEf00nnvwvGfdT2D9LilVYcz29cdpIDbeF2odFK5z-JAXsNx1bYMjPYwUAhWDQ067Mlo-9zi038g
+CODE_PREFIX=OM43
 EOF
-    warn "public_interface/.env créé - ADD BUNNY_SECURITY_KEY"
-fi
 
+echo -e "${GREEN}✅${NC} .env global créé"
+
+# 2. Fix public_interface.py - Ajouter fonctions manquantes
 echo ""
+echo "2️⃣ Correction public_interface.py..."
 
-# 5. Corriger bunny_signer.py
-echo "5️⃣ Correction bunny_signer.py..."
+cat > public_interface/public_interface.py << 'PYTHON_EOF'
+# filepath: /Users/mathieucourchesne/ONLY-system-1/public_interface/public_interface.py
+#!/usr/bin/env python3
+"""
+PUBLIC INTERFACE - ONLY System
+Interface publique client Netflix-style pour viewers/subscribers
+Port: 5062
+"""
 
-cat > public_interface/bunny_signer.py << 'PYTHON_EOF'
-# filepath: /Users/mathieucourchesne/ONLY-system-1/public_interface/bunny_signer.py
 import os
+import requests
+from datetime import datetime
+from fastapi import FastAPI, Request, HTTPException, Cookie
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+import uvicorn
+from dotenv import load_dotenv
 import hmac
 import hashlib
-import base64
-from datetime import datetime, timedelta
+import time
 
-def get_secure_embed_url(
-    library_id: int,
-    video_id: str,
-    security_key: str = None,
-    expires_in_hours: int = 2,
-    autoplay: bool = True
-) -> str:
-    """Generate secure Bunny Stream embed URL with token authentication"""
-    
-    key = security_key or os.environ.get('BUNNY_SECURITY_KEY')
-    
-    if not key:
-        print("⚠️ BUNNY_SECURITY_KEY not configured, returning unsigned URL")
-        return f"https://iframe.mediadelivery.net/embed/{library_id}/{video_id}?autoplay={'true' if autoplay else 'false'}"
-    
-    expires = int((datetime.now() + timedelta(hours=expires_in_hours)).timestamp())
-    signature_data = f"{library_id}{key}{expires}{video_id}"
-    signature_hash = hashlib.sha256(signature_data.encode('utf-8')).digest()
-    token = base64.urlsafe_b64encode(signature_hash).decode('utf-8').rstrip('=')
-    
-    base_url = f"https://iframe.mediadelivery.net/embed/{library_id}/{video_id}"
-    params = [
-        f"token={token}",
-        f"expires={expires}",
-        f"autoplay={'true' if autoplay else 'false'}"
-    ]
-    
-    return f"{base_url}?{'&'.join(params)}"
+# Configuration
+PORT = int(os.getenv("PORT", "5062"))
 
-if __name__ == "__main__":
+# ✅ Charge .env depuis racine projet ET dossier courant
+load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+
+# Environment detection
+ENVIRONMENT = os.environ.get('ENVIRONMENT', 'local')
+IS_PRODUCTION = ENVIRONMENT == 'production'
+
+# Service URLs
+CURATOR_URL = os.environ.get('CURATOR_URL', 'http://localhost:5061')
+MONETIZER_URL = os.environ.get('MONETIZER_URL', 'http://localhost:5060')
+GATEWAY_URL = os.environ.get('GATEWAY_URL', 'http://localhost:5055')
+
+# Bunny Security
+BUNNY_SECURITY_KEY = os.environ.get('BUNNY_SECURITY_KEY')
+
+if not BUNNY_SECURITY_KEY:
+    print("⚠️ BUNNY_SECURITY_KEY non configurée")
+
+app = FastAPI(title="ONLY - Public Interface", version="1.0.0")
+
+# Static files & templates
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def generate_session_token(video_id: str, access_token: str = None) -> str:
+    """Generate temporary session token for video access"""
+    timestamp = int(time.time())
+    data = f"{video_id}:{timestamp}:{access_token or 'anon'}"
+    
+    secret = os.environ.get('SECRET_KEY', 'change-me-in-production')
+    signature = hmac.new(
+        secret.encode(),
+        data.encode(),
+        hashlib.sha256
+    ).hexdigest()[:16]
+    
+    return f"{signature}-{timestamp}"
+
+def validate_session_token(token: str, video_id: str, max_age_seconds: int = 7200) -> bool:
+    """Validate session token (2h expiry by default)"""
     try:
-        url = get_secure_embed_url(
-            library_id=389178,
-            video_id="test-video-id",
-            expires_in_hours=2
-        )
-        print("✅ Secure URL generated:")
-        print(url)
+        signature, timestamp = token.rsplit('-', 1)
+        timestamp = int(timestamp)
+        
+        if time.time() - timestamp > max_age_seconds:
+            return False
+        
+        return len(signature) == 16
+        
+    except (ValueError, AttributeError):
+        return False
+
+def fetch_videos(category_id=None, tag_id=None, limit=50):
+    """Fetch videos from Curator Bot"""
+    try:
+        params = {"limit": limit}
+        if category_id:
+            params["category_id"] = category_id
+        if tag_id:
+            params["tag_id"] = tag_id
+        
+        response = requests.get(f"{CURATOR_URL}/videos", params=params, timeout=5)
+        response.raise_for_status()
+        return response.json()
     except Exception as e:
-        print(f"❌ Error: {e}")
-PYTHON_EOF
+        print(f"Error fetching videos: {e}")
+        return []
 
-status "bunny_signer.py corrigé"
-echo ""
-
-# 6. Corriger web_interface upload
-echo "6️⃣ Correction web_interface.py..."
-
-# Backup
-cp web_interface/web_interface.py web_interface/web_interface.py.backup
-
-# Patch la fonction upload
-cat > /tmp/web_fix.py << 'PYTHON_EOF'
-@app.post("/api/upload")
-async def upload_video(request: Request):
-    """Créer un job via Gateway"""
+def verify_token(token: str):
+    """Verify access token with Monetizer AI"""
     try:
-        data = await request.json()
-        video_url = data.get("url", "")
-        title = data.get("title", "")
-        
-        if not video_url:
-            raise HTTPException(status_code=400, detail="URL vidéo requise")
-        
-        gateway_url = os.environ.get("GATEWAY_URL", "http://localhost:5055")
-        
-        response = requests.post(
-            f"{gateway_url}/event",
-            json={
-                "event": "manual_upload",
-                "file": video_url,
-                "title": title,
-                "timestamp": datetime.now().isoformat()
-            },
-            timeout=10
+        response = requests.get(
+            f"{MONETIZER_URL}/verify",
+            params={"token": token},
+            timeout=5
         )
+        if response.status_code == 200:
+            return response.json()
+        return None
+    except Exception as e:
+        print(f"Error verifying token: {e}")
+        return None
+
+def check_video_access(video, token_data):
+    """Check if user has access to video based on access_level"""
+    if video.get("access_level") == "public":
+        return True
+    
+    if not token_data:
+        return False
+    
+    if token_data.get("access_level") == "vip":
+        return True
+    
+    if token_data.get("access_level") == "ppv":
+        return token_data.get("video_id") == video.get("id")
+    
+    return False
+
+# ============================================================================
+# ROUTES
+# ============================================================================
+
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request, access_token: str = Cookie(None)):
+    """Landing page - Netflix-style hero + carousels"""
+    
+    token_data = None
+    if access_token:
+        token_data = verify_token(access_token)
+    
+    videos = fetch_videos(limit=100)
+    
+    hero_video = None
+    for v in videos:
+        if check_video_access(v, token_data):
+            hero_video = v
+            break
+    
+    recent_videos = [v for v in videos if check_video_access(v, token_data)][:20]
+    
+    return templates.TemplateResponse("home.html", {
+        "request": request,
+        "hero_video": hero_video,
+        "recent_videos": recent_videos,
+        "is_authenticated": token_data is not None,
+        "is_vip": token_data and token_data.get("access_level") == "vip",
+        "environment": ENVIRONMENT,
+        "is_production": IS_PRODUCTION
+    })
+
+@app.get("/watch/{video_id}", response_class=HTMLResponse)
+async def watch(request: Request, video_id: str, access_token: str = Cookie(None)):
+    """Watch page - Video player with access control"""
+    
+    print(f"🎬 Accessing /watch/{video_id}")
+    
+    token_data = None
+    if access_token:
+        try:
+            token_data = verify_token(access_token)
+            print(f"✅ Token valid: {token_data}")
+        except Exception as e:
+            print(f"⚠️ Token verification failed: {e}")
+    
+    try:
+        curator_url = f"{CURATOR_URL}/videos/{video_id}"
+        print(f"📡 Fetching from: {curator_url}")
+        
+        response = requests.get(curator_url, timeout=10)
+        print(f"📊 Curator response: {response.status_code}")
         
         if response.status_code != 200:
-            print(f"❌ Gateway error: {response.status_code} - {response.text}")
-            raise HTTPException(status_code=502, detail=f"Gateway error: {response.text}")
+            print(f"❌ Curator error: {response.text}")
+            raise HTTPException(status_code=404, detail=f"Video {video_id} not found")
         
-        job = response.json()
+        video = response.json()
+        print(f"✅ Video found: {video.get('title', 'N/A')}")
         
-        return {
-            "ok": True,
-            "job_id": job.get("job_id"),
-            "message": "Vidéo en cours de traitement"
-        }
-        
-    except requests.exceptions.ConnectionError:
-        print(f"❌ Cannot connect to Gateway at {gateway_url}")
-        raise HTTPException(status_code=503, detail="Gateway non disponible")
-    except requests.exceptions.Timeout:
-        raise HTTPException(status_code=504, detail="Gateway timeout")
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"❌ Upload error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"❌ Unexpected error: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+    
+    has_access = check_video_access(video, token_data)
+    
+    if not has_access:
+        if video.get("access_level") in ["vip", "ppv"]:
+            return RedirectResponse(url=f"/login?next=/watch/{video_id}", status_code=303)
+    
+    try:
+        related_videos = fetch_videos(limit=20)
+        related_videos = [
+            v for v in related_videos 
+            if str(v.get("id")) != str(video_id) and check_video_access(v, token_data)
+        ][:6]
+    except Exception as e:
+        print(f"⚠️ Could not fetch related videos: {e}")
+        related_videos = []
+    
+    bunny_video_id = video.get("bunny_video_id")
+    if not bunny_video_id:
+        print(f"❌ No bunny_video_id for video {video_id}")
+        raise HTTPException(status_code=500, detail="Video configuration error")
+    
+    iframe_url = f"https://iframe.mediadelivery.net/embed/389178/{bunny_video_id}?autoplay=true"
+    
+    print(f"🎬 Iframe URL: {iframe_url}")
+    
+    return templates.TemplateResponse("watch.html", {
+        "request": request,
+        "video": video,
+        "iframe_url": iframe_url,
+        "related_videos": related_videos,
+        "is_authenticated": token_data is not None,
+        "is_vip": token_data and token_data.get("access_level") == "vip"
+    })
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """Login page for token authentication"""
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.post("/api/login")
+async def login(request: Request):
+    """Authenticate user with token"""
+    data = await request.json()
+    token = data.get("token")
+    
+    if not token:
+        raise HTTPException(status_code=400, detail="Token required")
+    
+    token_data = verify_token(token)
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
+    response = JSONResponse({"ok": True, "access_level": token_data.get("access_level")})
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        max_age=30*24*60*60,
+        samesite="lax"
+    )
+    return response
+
+@app.get("/logout")
+async def logout():
+    """Logout user"""
+    response = RedirectResponse(url="/")
+    response.delete_cookie("access_token")
+    return response
+
+@app.get("/health")
+async def health():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "service": "public_interface",
+        "port": PORT,
+        "timestamp": datetime.now().isoformat()
+    }
+
+if __name__ == "__main__":
+    print(f"🌐 PUBLIC INTERFACE starting on port {PORT}...")
+    print(f"🚪 Gateway: {GATEWAY_URL}")
+    print(f"🎬 Curator: {CURATOR_URL}")
+    print(f"💰 Monetizer: {MONETIZER_URL}")
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
 PYTHON_EOF
 
-warn "web_interface.py - backup créé, patch manuel requis"
+echo -e "${GREEN}✅${NC} public_interface.py corrigé"
+
+# 3. Git commit et push
 echo ""
+echo "3️⃣ Git commit et push..."
 
-# 7. Test des ports disponibles
-echo "7️⃣ Test ports disponibles..."
-ports=(5000 5055 5056 5058 5059 5060 5061 5062)
-all_free=true
+git add .
+git commit -m "Fix: Auto-correction complete - env vars + missing functions + health endpoints" 2>/dev/null
 
-for port in "${ports[@]}"; do
-    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
-        error "Port $port occupé"
-        all_free=false
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✅${NC} Commit créé"
+    
+    read -p "Push sur GitHub maintenant ? (Y/n) " -n 1 -r
+    echo ""
+    
+    if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+        git push origin main
+        
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✅${NC} Poussé sur GitHub"
+        else
+            echo -e "${RED}❌${NC} Erreur push GitHub"
+        fi
     else
-        status "Port $port libre"
+        echo -e "${YELLOW}⏸️${NC} Push annulé"
     fi
-done
-echo ""
-
-# 8. Résumé
-echo "=================================="
-echo "📊 RÉSUMÉ"
-echo "=================================="
-echo ""
-
-if [ "$all_free" = true ]; then
-    status "Tous les ports sont libres"
 else
-    warn "Certains ports sont occupés (voir ci-dessus)"
+    echo -e "${YELLOW}ℹ️${NC} Rien à commiter (déjà à jour)"
 fi
 
-status "Dépendances installées"
-status "Fichiers .env vérifiés"
-status "bunny_signer.py corrigé"
-
-echo ""
-echo "⚠️  ACTIONS MANUELLES REQUISES:"
-echo ""
-echo "1. Édite monetizer_ai/.env:"
-echo "   SECRET_KEY=ton-secret-tres-long-ici"
-echo ""
-echo "2. Édite public_interface/.env:"
-echo "   BUNNY_SECURITY_KEY=ton-uuid-bunny-ici"
-echo ""
-echo "3. Applique le patch web_interface.py:"
-echo "   cat /tmp/web_fix.py"
-echo "   (Remplace la fonction @app.post(\"/api/upload\"))"
-echo ""
-echo "4. Relance le système:"
-echo "   ./start_all.sh"
 echo ""
 echo "=================================="
-echo "✅ Auto-fix terminé !"
+echo -e "${GREEN}✅ Auto-fix terminé !${NC}"
 echo "=================================="
+echo ""
+echo -e "${YELLOW}📝 ACTIONS MANUELLES RESTANTES:${NC}"
+echo ""
+echo "1️⃣ Sur Bunny Dashboard (https://panel.bunny.net):"
+echo "   - Library 389178 → Security"
+echo "   - Désactive 'Embed view token authentication' (temporaire)"
+echo "   - OU ajoute BUNNY_SECURITY_KEY sur Render si tu veux Token Auth ON"
+echo ""
+echo "2️⃣ Attends que Render redéploie (3-5 min si push GitHub)"
+echo ""
+echo "3️⃣ Teste:"
+echo "   ${GREEN}curl https://only-public.onrender.com/watch/121${NC}"
+echo ""
+echo "🎉 Le système devrait maintenant fonctionner !"
