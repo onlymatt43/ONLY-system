@@ -285,6 +285,10 @@ class SentinelAutoFix:
         bunny_ref = self._check_bunny_referrers()
         if bunny_ref:
             results["issues_found"].append(bunny_ref)
+            # Check embed logging & rate-limiting
+            audit_check = self._check_embed_audit_and_rate()
+            if audit_check:
+                results["issues_found"].append(audit_check)
 
         # 2. Check services down
         services_down = self._check_services()
@@ -384,6 +388,46 @@ class SentinelAutoFix:
                 "type": "BUNNY_REFERRERS",
                 "severity": "MEDIUM",
                 "message": f"Error testing bunny referers: {e}",
+                "details": {}
+            }
+
+    def _check_embed_audit_and_rate(self) -> Optional[dict]:
+        """Check if embed audit logs are present and rate limit enforced."""
+        try:
+            # Check for audit log file in public interface
+            import os
+            audit_file = os.path.join(os.path.dirname(__file__), '..', 'logs', 'public_interface_audit.log')
+            if not os.path.exists(audit_file):
+                return {
+                    "type": "BUNNY_AUDIT",
+                    "severity": "LOW",
+                    "message": "Audit log for embed requests not found",
+                    "details": {}
+                }
+
+            # Check rate limit by making successive requests
+            import requests
+            url = f"{PUBLIC_URL}/api/embed/1"
+            results = []
+            for _ in range(5):
+                r = requests.get(url, timeout=5)
+                results.append(r.status_code)
+
+            if 429 in results:
+                # Rate limit present
+                return None
+            else:
+                return {
+                    "type": "BUNNY_RATE_LIMIT",
+                    "severity": "MEDIUM",
+                    "message": "Rate-limit not detected on /api/embed; consider adding limits to prevent abuse",
+                    "details": {"samples": results}
+                }
+        except Exception as e:
+            return {
+                "type": "BUNNY_AUDIT",
+                "severity": "LOW",
+                "message": f"Error testing embed audit/rate: {e}",
                 "details": {}
             }
     

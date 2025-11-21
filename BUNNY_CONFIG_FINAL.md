@@ -46,6 +46,8 @@ src="https://iframe.mediadelivery.net/embed/389178/VIDEO_ID?token=ABC...&expires
 
 Avec cette config:
 - ✅ **Referer check**: Seulement only-public.onrender.com
+ - ✅ **Embed Rate-limit**: `/api/embed` rate-limited to prevent scraping.
+ - ✅ **Embed Audit Logs**: Server records embed requests for analysis and abuse detection.
 - ✅ **Token Auth**: URLs signées avec expiration
 - ✅ **CDN Auth**: CDN aussi requiert token
 - ✅ **Direct URL blocked**: Pas de téléchargement direct

@@ -103,6 +103,7 @@ Outputs:
 
 ### Level 2: Token Auth (RECOMMANDÉ)
 - ✅ Code: `bunny_signer.py` prêt
+ - ✅ Code: `bunny_signer.py` prêt (HMAC-SHA256 per Bunny token auth best-practices). Do not expose your `BUNNY_SECURITY_KEY`.
 - ⚠️ Bunny: Active Token Auth + copie Security Key
 - ⚠️ Render: Ajoute `BUNNY_SECURITY_KEY`
 - Protection: URLs signées avec expiration
