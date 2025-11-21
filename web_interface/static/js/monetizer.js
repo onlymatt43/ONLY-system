@@ -26,7 +26,24 @@ async function mintToken() {
             })
         });
         
-        const result = await response.json();
+            if (!response.ok) {
+                // Try to surface Monetizer error details to the user
+                let errText = '';
+                try {
+                    const errBody = await response.json();
+                    errText = errBody.error || errBody.detail || JSON.stringify(errBody);
+                } catch (e) {
+                    errText = await response.text();
+                }
+                alert(`❌ Monetizer error: ${errText || response.status}`);
+                throw new Error(`HTTP ${response.status} - ${errText}`);
+            }
+
+            const result = await response.json();
+            if (result && result.ok === false) {
+                alert(`❌ Monetizer error: ${result.error || result.detail || JSON.stringify(result)}`);
+                throw new Error('Mint failed');
+            }
         
         if (result.ok) {
             resultDiv.innerHTML = `
