@@ -70,6 +70,10 @@ Va sur https://dashboard.render.com et crée **5 Web Services** :
 BUNNY_SECURITY_KEY=your-bunny-security-key
 ```
 
+Security reminders:
+- Add Bunny Allowed Referrers for your production domain.
+- Consider adding rate-limiting either in the app or at the Edge (Render/Cloudflare) for `/api/embed` and token mint endpoints to prevent brute-force or enumeration attacks.
+
 5. Deploy
 
 ### Service 1b/5 : Public Interface (public pages & embeds)
