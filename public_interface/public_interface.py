@@ -191,6 +191,17 @@ async def home(request: Request, access_token: str = Cookie(None)):
         "is_production": IS_PRODUCTION
     })
 
+
+@app.head("/", include_in_schema=False)
+async def home_head(request: Request):
+    """Health check for HTTP HEAD probes to the root path.
+
+    Some platforms (Render, AWS, etc.) prefer to use an HTTP HEAD check on
+    the service root. FastAPI normally adds HEAD alongside GET, but explicit
+    handlers avoid 405s when proxy or middleware modifies behavior.
+    """
+    return PlainTextResponse("OK")
+
 @app.get("/watch/{video_id}", response_class=HTMLResponse)
 async def watch(request: Request, video_id: str, access_token: str = Cookie(None)):
     """Watch page - Video player with access control"""
@@ -377,6 +388,16 @@ async def health():
         "port": PORT,
         "timestamp": datetime.now().isoformat()
     }
+
+
+@app.head("/health", include_in_schema=False)
+async def health_head():
+    """Ensure HTTP HEAD health checks return 200 quickly.
+
+    Some deployment platforms use HEAD on / or /health for liveness checks; by
+    explicitly returning an empty success response we avoid 405 errors.
+    """
+    return PlainTextResponse("OK")
 
 @app.get("/monetizer", response_class=HTMLResponse)
 async def monetizer_page(request: Request):
