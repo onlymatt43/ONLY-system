@@ -3,7 +3,16 @@ from hashlib import sha256
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List
 from fastapi import FastAPI, Request
+try:
+    from slowapi import Limiter
+    from slowapi.util import get_remote_address
+    from slowapi.middleware import SlowAPIMiddleware
+except Exception:
+    Limiter = None
+    get_remote_address = None
+    SlowAPIMiddleware = None
 from fastapi.responses import JSONResponse
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -18,6 +27,23 @@ CODE_PREFIX     = os.getenv("CODE_PREFIX","OM43")
 from libsql_client import create_client_sync
 
 app = FastAPI(title="Monetizer AI (Turso)", version="2.0")
+
+# Rate limiter to prevent abuse of token creation
+try:
+    limiter = Limiter(key_func=get_remote_address)
+    app.state.limiter = limiter
+    app.add_middleware(SlowAPIMiddleware)
+except Exception:
+    limiter = None
+    print("⚠️ slowapi not available — rate limiting disabled for monetizer")
+
+# Audit logger
+audit_logger = logging.getLogger("monetizer.audit")
+audit_logger.setLevel(logging.INFO)
+os.makedirs("logs", exist_ok=True)
+ah = logging.FileHandler("logs/monetizer_audit.log")
+ah.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+audit_logger.addHandler(ah)
 
 # ───────────────────────────────── DB
 _client = None
@@ -87,8 +113,15 @@ def startup():
 def index():
     return {"status": "Monetizer AI (Turso)", "version": "2.0"}
 
+def _rate_limited_mint(func=None):
+    if limiter:
+        return limiter.limit("10/minute")(func)
+    return func
+
+
 @app.post("/mint")
-def mint(req: Dict[str, Any]):
+@_rate_limited_mint
+def mint(request: Request, req: Dict[str, Any]):
     """
     Create new token
     {
@@ -115,6 +148,13 @@ def mint(req: Dict[str, Any]):
         "INSERT INTO tokens(code, token, access_level, video_id, expires_at, created_at) VALUES(?,?,?,?,?,?)",
         [code, token, access_level, video_id, expires_at.isoformat(), created_at.isoformat()]
     )
+
+    # Audit
+    try:
+        remote_ip = request.client.host if request.client else "unknown"
+        audit_logger.info(f"mint ip={remote_ip} code={code} access_level={access_level} video_id={video_id}")
+    except Exception:
+        pass
     
     return {
         "ok": True,

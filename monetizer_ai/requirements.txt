@@ -6,3 +6,4 @@ pillow
 python-slugify
 python-dateutil
 libsql-client
+slowapi==0.1.5

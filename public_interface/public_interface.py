@@ -8,6 +8,18 @@ Port: 5062
 import os
 import requests
 from fastapi import FastAPI, Request, HTTPException, Cookie
+try:
+    from slowapi import Limiter
+    from slowapi.util import get_remote_address
+    from slowapi.errors import RateLimitExceeded
+    from slowapi.middleware import SlowAPIMiddleware
+    from slowapi.extension import Limiter as LimiterExt
+except Exception:
+    Limiter = None
+    get_remote_address = None
+    RateLimitExceeded = None
+    SlowAPIMiddleware = None
+    LimiterExt = None
 from fastapi.responses import PlainTextResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from typing import Optional
@@ -15,6 +27,7 @@ from public_interface.bunny_signer import get_secure_embed_url
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from datetime import datetime
+import logging
 import uvicorn
 from dotenv import load_dotenv
 import hmac
@@ -45,6 +58,24 @@ if not BUNNY_SECURITY_KEY:
     print("⚠️ BUNNY_SECURITY_KEY non configurée")
 
 app = FastAPI(title="ONLY - Public Interface", version="1.0.0")
+
+# Rate limiting (slowapi) - limits per IP
+try:
+    limiter = Limiter(key_func=get_remote_address)
+    app.state.limiter = limiter
+    app.add_middleware(SlowAPIMiddleware)
+
+    # Logger for embed and mint access audits
+    logger = logging.getLogger("public_interface.audit")
+    logger.setLevel(logging.INFO)
+    os.makedirs("logs", exist_ok=True)
+    log_handler = logging.FileHandler("logs/public_interface_audit.log")
+    log_handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+    logger.addHandler(log_handler)
+except Exception:
+    # slowapi may not be available in some environments; fallback to no limiter
+    limiter = None
+    print("⚠️ slowapi not available — rate limiting disabled")
 
 
 @app.middleware("http")
@@ -300,6 +331,13 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
 
 
 @app.get("/api/embed/{video_id}")
+def _rate_limited_embed_decorator(func):
+    # Apply limiter if available
+    if limiter:
+        return limiter.limit("20/minute")(func)
+    return func
+
+@_rate_limited_embed_decorator
 async def api_embed(request: Request, video_id: int, access_token: str = Cookie(None)):
     """Return signed embed URL for a video if the caller has access.
 
@@ -340,6 +378,16 @@ async def api_embed(request: Request, video_id: int, access_token: str = Cookie(
     except Exception as e:
         print(f"❌ Error generating signed url: {e}")
         return JSONResponse({"ok": False, "error": "sign_error"}, status_code=500)
+
+    # Audit log
+    try:
+        client_ip = request.client.host if request.client else 'unknown'
+        logger.info(
+            f"embed_request ip={client_ip} referer={request.headers.get('referer')} "
+            f"video_id={video_id} library_id={library_id} success=True"
+        )
+    except Exception:
+        pass
 
     return JSONResponse({"ok": True, "embed_url": signed_url})
 
@@ -416,6 +464,12 @@ async def get_tokens():
         return {"tokens": [], "error": str(e)}
 
 @app.post("/api/tokens/mint")
+def _rate_limited_mint_decorator(func):
+    if limiter:
+        return limiter.limit("10/minute")(func)
+    return func
+
+@_rate_limited_mint_decorator
 async def mint_token(request: Request):
     """Create new token via Monetizer API"""
     try:
@@ -432,11 +486,18 @@ async def mint_token(request: Request):
             raise HTTPException(status_code=502, detail=f"Monetizer error: {response.status_code}")
 
         try:
-            return response.json()
+            resp_json = response.json()
         except ValueError:
-            # Non-JSON response — return a helpful error
             print(f"❌ Monetizer returned non-JSON: {response.text}")
             raise HTTPException(status_code=502, detail="Monetizer returned invalid response")
+
+        # Audit log
+        client_ip = request.client.host if request.client else 'unknown'
+        logger.info(
+            f"mint_request ip={client_ip} token_ok={resp_json.get('ok', False)} title={data.get('title')}"
+        )
+
+        return resp_json
     except HTTPException:
         # Allow HTTPExceptions raised above to propagate with their status
         raise

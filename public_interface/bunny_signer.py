@@ -24,17 +24,14 @@ def get_secure_embed_url(
     # Calculate expiration timestamp
     expires = int((datetime.now() + timedelta(hours=expires_in_hours)).timestamp())
     
-    # ✅ CORRECT FORMAT selon Bunny docs:
-    # SHA256 hash de: library_id + security_key + expires + video_id (SANS séparateurs)
-    signature_data = f"{library_id}{key}{expires}{video_id}"
-    
-    print(f"🔐 Signature data: library_id={library_id}, expires={expires}, video_id={video_id}")
-    
-    # Generate SHA256 hash (pas HMAC, juste SHA256)
-    signature_hash = hashlib.sha256(signature_data.encode('utf-8')).digest()
-    
-    # Base64 encode (standard, pas URL-safe) et remove padding
-    token = base64.urlsafe_b64encode(signature_hash).decode('utf-8')
+    # Bunny official approach: use HMAC-SHA256 with the security key (secret)
+    # over the canonical data (library + video + expires). This follows
+    # token-based auth patterns and keeps the secret in the key, not in
+    # the cleartext used in the message.
+    message = f"{library_id}{video_id}{expires}".encode('utf-8')
+    signature_hash = hmac.new(key.encode('utf-8'), message, hashlib.sha256).digest()
+    # Base64 URL-safe without padding
+    token = base64.urlsafe_b64encode(signature_hash).decode('utf-8').rstrip("=")
     
     # Build URL with token and expires parameters
     base_url = f"https://iframe.mediadelivery.net/embed/{library_id}/{video_id}"
@@ -46,7 +43,9 @@ def get_secure_embed_url(
     
     signed_url = f"{base_url}?{'&'.join(params)}"
     
-    print(f"✅ Signed URL generated (token length: {len(token)})")
+    # Do not log security sensitive info in production
+    if os.environ.get('ENVIRONMENT') != 'production':
+        print(f"✅ Signed URL generated (token length: {len(token)})")
     
     return signed_url
 
