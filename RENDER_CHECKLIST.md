@@ -72,6 +72,36 @@ BUNNY_SECURITY_KEY=your-bunny-security-key
 
 5. Deploy
 
+### Service 1b/5 : Public Interface (public pages & embeds)
+
+Use this service to host the public watch pages and signed Bunny embed endpoint.
+
+1. **New Web Service**
+2. Connect the repo
+3. Configuration :
+    - **Name:** `only-public`
+    - **Root Directory:** `public_interface`
+    - **Environment:** `Python 3`
+    - **Build Command:** `pip install -r requirements.txt`
+    - **Start Command (recommended):** `python -m public_interface.public_interface`
+       - Alternative: `uvicorn public_interface.public_interface:app --host 0.0.0.0 --port $PORT`
+    - **Plan:** Free (DEV) or Starter (PROD)
+
+4. **Environment Variables** :
+```
+# Needed when using Bunny Token Auth
+BUNNY_SECURITY_KEY=your-bunny-security-key
+```
+
+5. Notes:
+    - We added a package initializer `public_interface/__init__.py` so imports like
+       `from public_interface.bunny_signer import get_secure_embed_url` work reliably when the
+         app runs as a module or when imported from tests.
+    - Render default 'Start Command' may be `python public_interface.py` which can cause
+       package import issues — prefer the `-m` or `uvicorn` form above.
+
+6. Deploy
+
 ### Service 2/5 : Gateway 🔧 (PRIVÉ)
 
 1. **New Web Service**
