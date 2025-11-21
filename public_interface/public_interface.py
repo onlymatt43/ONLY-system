@@ -64,8 +64,16 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 # Static files & templates
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+BASE_DIR = os.path.dirname(__file__)
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+
+# Ensure static dir exists (helps detect misconfigured working directories)
+if not os.path.isdir(STATIC_DIR):
+    print(f"FAIL Directory '{os.path.basename(STATIC_DIR)}' does not exist")
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # ============================================================================
 # HELPER FUNCTIONS
