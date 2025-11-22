@@ -15,7 +15,7 @@ import requests
 import json
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
-from fastapi import FastAPI, Request, UploadFile, File
+from fastapi import FastAPI, Request, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 
@@ -455,13 +455,13 @@ async def get_video(video_id: int):
     """Get specific video by ID"""
     print(f"🔍 Fetching video {video_id}")
     
-    conn = get_db()
+    conn = db()
     cursor = conn.cursor()
     
     cursor.execute("""
         SELECT id, title, bunny_video_id, duration, thumbnail_url,
                video_url, cdn_hostname, access_level, library_type,
-               view_count, created_at
+               views, created_at
         FROM videos
         WHERE id = ?
     """, (video_id,))
@@ -491,19 +491,21 @@ async def get_video(video_id: int):
             }
         )
     
+    # Convert sqlite3.Row into a plain dict for flexible access
+    row_dict = dict(row)
     video = {
-        "id": row[0],
-        "title": row[1],
-        "bunny_video_id": row[2],
-        "video_id": row[2],
-        "duration": row[3],
-        "thumbnail_url": row[4],
-        "video_url": row[5],
-        "cdn_hostname": row[6],
-        "access_level": row[7],
-        "library_type": row[8],
-        "view_count": row[9],
-        "created_at": row[10]
+        "id": row_dict.get("id"),
+        "title": row_dict.get("title"),
+        "bunny_video_id": row_dict.get("bunny_video_id"),
+        "video_id": row_dict.get("bunny_video_id"),
+        "duration": row_dict.get("duration"),
+        "thumbnail_url": row_dict.get("thumbnail_url"),
+        "video_url": row_dict.get("video_url"),
+        "cdn_hostname": row_dict.get("cdn_hostname"),
+        "access_level": row_dict.get("access_level"),
+        "library_type": row_dict.get("library_type"),
+        "view_count": row_dict.get("views", row_dict.get("view_count", 0)),
+        "created_at": row_dict.get("created_at")
     }
     
     print(f"✅ Video found: {video['title']}")
