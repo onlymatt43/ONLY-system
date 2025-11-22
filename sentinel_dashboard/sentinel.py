@@ -317,7 +317,7 @@ class SentinelMonitor:
                 os.makedirs(logs_dir, exist_ok=True)
                 audit_path = os.path.join(logs_dir, 'sentinel_actions.log')
                 with open(audit_path, 'a', encoding='utf-8') as fh:
-                    fh.write(f"{datetime.utcnow().isoformat()} bunny_check video={vid} probe_ok={record.get('probe_ok')} status={record.get('probe_status')}\n")
+                    fh.write(f"{datetime.utcnow().isoformat()} 🔎 Vérif Bunny — video={vid} acces_ok={record.get('probe_ok')} statut={record.get('probe_status')}\n")
             except Exception:
                 pass
 
@@ -435,21 +435,40 @@ class SentinelAutoFix:
         return results
 
     def _check_video_403(self) -> Optional[dict]:
-        """Vérifie si vidéos retournent 403"""
+        """Vérifie si vidéos retournent 403 ou 'not found' (404) pour une vidéo.
+
+        This check uses a configurable test video id via env var
+        `SENTINEL_WATCH_TEST_VIDEO_ID` (fallback 121). It detects:
+          - 403 Forbidden (VIDEO_403)
+          - 404 or response containing "not found" (VIDEO_NOT_FOUND)
+        """
         try:
-            # Test une vidéo
-            response = requests.get(
-                "https://only-public.onrender.com/watch/121",
-                timeout=5
-            )
-            if "403" in response.text or response.status_code == 403:
+            test_vid = os.environ.get('SENTINEL_WATCH_TEST_VIDEO_ID', '121')
+            url = f"{PUBLIC_URL.rstrip('/')}/watch/{test_vid}"
+            response = requests.get(url, timeout=5)
+
+            # 403 responses -> previously handled
+            if response.status_code == 403 or '403' in (response.text or ''):
                 return {
                     "type": "VIDEO_403",
                     "severity": "CRITICAL",
-                    "message": "Les vidéos retournent 403 Forbidden",
+                    "message": f"Les vidéos retournent 403 Forbidden on {url}",
                     "detected_at": datetime.now().isoformat()
                 }
-        except:
+
+            # 404 responses or responses that explicitly mention 'not found' should be flagged
+            body = (response.text or '').lower()
+            if response.status_code == 404 or 'not found' in body or 'video' in body and 'not found' in body:
+                return {
+                    "type": "VIDEO_NOT_FOUND",
+                    "severity": "HIGH",
+                    "message": f"Watch page returned not found for {url}: status={response.status_code}",
+                    "details": (response.text[:400] if response.text else ''),
+                    "detected_at": datetime.now().isoformat()
+                }
+
+        except Exception:
+            # network/other errors are ignored at this stage (other checks cover services down)
             pass
 
         return None
@@ -745,13 +764,22 @@ def verify_bunny(request: Request, video_id: str, library: str = 'private', prob
         except Exception as e:
             result['probe_error'] = str(e)[:200]
 
+    # Human-friendly message (French) for admins/operators
+    if 'probe_status' in result:
+        if result.get('probe_status') == 200:
+            result['message'] = "L'URL signée a été générée et la vérification a réussi (200)."
+        else:
+            result['message'] = f"L'URL signée a été générée mais la vérification a retourné {result.get('probe_status')} — vérifiez la clé/les allowed referrers."
+    else:
+        result['message'] = "L'URL signée a été générée. (Ajoutez ?probe=true pour tester l'accès.)"
+
     # Add a short audit line to logs
     try:
         logs_dir = os.path.join(os.path.dirname(__file__), '..', 'logs')
         os.makedirs(logs_dir, exist_ok=True)
         audit_path = os.path.join(logs_dir, 'sentinel_actions.log')
         with open(audit_path, 'a', encoding='utf-8') as fh:
-            fh.write(f"{datetime.utcnow().isoformat()} verify_bunny video={video_id} library={library} probe={probe} result={result.get('probe_status', 'N/A')}\n")
+            fh.write(f"{datetime.utcnow().isoformat()} 🔎 Vérif Bunny — video={video_id} lib={library} probe={probe} statut={result.get('probe_status', 'N/A')} ok={result.get('probe_ok', 'N/A')}\n")
     except Exception:
         pass
 

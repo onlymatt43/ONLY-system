@@ -40,4 +40,4 @@ def test_perform_bunny_checks(monkeypatch, tmp_path):
     log_path = os.path.join(os.path.dirname(__file__), '..', 'logs', 'sentinel_actions.log')
     assert os.path.exists(log_path)
     content = open(log_path, 'r', encoding='utf-8').read()
-    assert 'bunny_check' in content
+    assert 'Vérif Bunny' in content

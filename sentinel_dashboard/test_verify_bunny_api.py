@@ -53,6 +53,8 @@ def test_verify_bunny_with_key_and_probe(monkeypatch):
         assert data['token_present'] is True
         assert data['probe_ok'] is True
         assert 'token_masked' in data and data['token_masked'].startswith('MOCK') == False
+        # Friendly operator message (French) should be present
+        assert 'message' in data and len(data['message']) > 0
     except TypeError:
         # Fallback to direct call
         fake_req = type('R', (), {'headers': {'X-Admin-Key': 'secret123'}})()
@@ -67,3 +69,4 @@ def test_verify_bunny_with_key_and_probe(monkeypatch):
         assert data['ok'] is True
         assert data['token_present'] is True
         assert data['probe_ok'] is True
+        assert 'message' in data and len(data['message']) > 0
