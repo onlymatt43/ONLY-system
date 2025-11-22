@@ -409,7 +409,13 @@ class SentinelAutoFix:
             results["issues_found"].append(video_403)
 
             # Auto-fix si possible
-            fix = self._fix_video_403()
+            # Choose appropriate auto-fix based on detected type
+            if video_403.get("type") == "VIDEO_403":
+                fix = self._fix_video_403()
+            elif video_403.get("type") == "VIDEO_NOT_FOUND":
+                fix = self._fix_video_not_found()
+            else:
+                fix = None
             if fix and fix.get("auto_fixed"):
                 results["fixes_applied"].append(fix)
             else:
@@ -527,6 +533,90 @@ class SentinelAutoFix:
                     "4. Redeploy"
                 ]
             }
+
+    def _fix_video_not_found(self) -> Optional[dict]:
+        """Try to auto-heal VIDEO_NOT_FOUND by triggering a Curator Bunny sync.
+
+        Safe behaviour:
+        - Will auto-run only if env var SENTINEL_AUTO_FIX_VIDEO_NOT_FOUND=true OR Curator DB is empty
+        - After calling POST /sync/bunny it will re-check the specific video id
+        """
+        try:
+            test_vid = os.environ.get('SENTINEL_WATCH_TEST_VIDEO_ID', '121')
+            curator_video_url = f"{CURATOR_URL.rstrip('/')}/videos/{test_vid}"
+
+            # Quick check if video already exists
+            r = requests.get(curator_video_url, timeout=5)
+            if r.status_code == 200:
+                return {
+                    "issue": "VIDEO_NOT_FOUND",
+                    "auto_fixed": False,
+                    "message": f"Video {test_vid} already present in Curator; no action needed"
+                }
+
+            # Check total videos in DB to decide whether to auto-fix
+            list_resp = requests.get(f"{CURATOR_URL.rstrip('/')}/videos?limit=1", timeout=5)
+            total_empty = False
+            try:
+                items = list_resp.json()
+                if not items or len(items) == 0:
+                    total_empty = True
+            except Exception:
+                # If we cannot parse, be conservative
+                total_empty = False
+
+            auto_fix_env = os.environ.get('SENTINEL_AUTO_FIX_VIDEO_NOT_FOUND', 'false').lower() in ('1', 'true', 'yes')
+
+            if not (auto_fix_env or total_empty):
+                return {
+                    "issue": "VIDEO_NOT_FOUND",
+                    "auto_fixed": False,
+                    "action": "MANUAL",
+                    "instructions": [
+                        "Curator is missing the video but auto-fix is disabled.",
+                        "1. Manually run POST /sync/bunny on the Curator service",
+                        "2. If videos still missing, check Bunny API access and library IDs"
+                    ]
+                }
+
+            # Attempt auto sync
+            sync_url = f"{CURATOR_URL.rstrip('/')}/sync/bunny"
+            sync_resp = requests.post(sync_url, timeout=60)
+            try:
+                sync_json = sync_resp.json()
+            except Exception:
+                sync_json = None
+
+            # Immediately re-check video
+            r2 = requests.get(curator_video_url, timeout=5)
+            if r2.status_code == 200:
+                return {
+                    "issue": "VIDEO_NOT_FOUND",
+                    "auto_fixed": True,
+                    "message": f"Video {test_vid} became available after curator sync",
+                    "details": sync_json or {}
+                }
+
+            # If still missing
+            return {
+                "issue": "VIDEO_NOT_FOUND",
+                "auto_fixed": False,
+                "action": "MANUAL",
+                "details": sync_json or {},
+                "instructions": [
+                    "POST /sync/bunny did not import the missing video.",
+                    "Check Bunny library for the GUID, or run a targeted insert into Curator."
+                ]
+            }
+        except Exception as e:
+            return {
+                "issue": "VIDEO_NOT_FOUND",
+                "auto_fixed": False,
+                "action": "MANUAL",
+                "error": str(e),
+                "instructions": ["Network or unexpected error when attempting auto-fix"]
+            }
+            
 
     def _check_bunny_referrers(self) -> Optional[dict]:
         """Verify Bunny Allowed Referrers by testing embeds with referer headers.
