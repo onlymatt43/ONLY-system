@@ -27,13 +27,12 @@
             <form id="loginForm" class="login-form">
                 <div class="form-group">
                     <label for="token">Access Token</label>
-                    <input type="text" 
-                           id="token" 
-                           name="token" 
-                           placeholder="XXXX-XXXX-XXXX"
-                           required
-                           pattern="[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}">
-                    <small>Format: XXXX-XXXX-XXXX (e.g., OM43-5NSV-4UDD)</small>
+                          <input type="text" 
+                              id="token" 
+                              name="token" 
+                              placeholder="Code (OM43-XXXX-XXXX) ou token long"
+                              required>
+                          <small>Vous pouvez entrer le code lisible (OM43-XXXX-XXXX) ou le token long généré.</small>
                 </div>
                 
                 <button type="submit" class="btn-submit">Login</button>

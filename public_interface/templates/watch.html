@@ -134,7 +134,8 @@
     // Fetch signed embed if available via server API
     (async function() {
         try {
-            const res = await fetch(`/api/embed/{{ video.id }}`);
+            // Include credentials explicitly so cookies are sent for same-origin requests
+            const res = await fetch(`/api/embed/{{ video.id }}`, { credentials: 'same-origin' });
             const json = await res.json();
             if (res.ok && json.embed_url) {
                 document.getElementById('videoPlayer').src = json.embed_url;

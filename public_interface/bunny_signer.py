@@ -10,7 +10,8 @@ def get_secure_embed_url(
     video_id: str,
     security_key: Optional[str] = None,
     expires_in_hours: int = 2,
-    autoplay: bool = True
+    autoplay: bool = True,
+    expires_ts: Optional[int] = None
 ) -> str:
     """Generate secure Bunny Stream embed URL with token authentication"""
     
@@ -21,14 +22,13 @@ def get_secure_embed_url(
         print("⚠️ BUNNY_SECURITY_KEY not configured, returning unsigned URL")
         return f"https://iframe.mediadelivery.net/embed/{library_id}/{video_id}?autoplay={'true' if autoplay else 'false'}"
     
-    # Calculate expiration timestamp
-    expires = int((datetime.now() + timedelta(hours=expires_in_hours)).timestamp())
+    # Calculate expiration timestamp (allow deterministic override for tests)
+    expires = int(expires_ts if expires_ts is not None else (datetime.now() + timedelta(hours=expires_in_hours)).timestamp())
     
     # Bunny official approach: use HMAC-SHA256 with the security key (secret)
-    # over the canonical data (library + video + expires). This follows
-    # token-based auth patterns and keeps the secret in the key, not in
-    # the cleartext used in the message.
-    message = f"{library_id}{video_id}{expires}".encode('utf-8')
+    # over the canonical data in the format: library_id/video_id/expiration
+    # This matches the Bunny docs which use slash-separated segments.
+    message = f"{library_id}/{video_id}/{expires}".encode('utf-8')
     signature_hash = hmac.new(key.encode('utf-8'), message, hashlib.sha256).digest()
     # Base64 URL-safe without padding
     token = base64.urlsafe_b64encode(signature_hash).decode('utf-8').rstrip("=")

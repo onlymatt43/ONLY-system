@@ -41,7 +41,8 @@ except Exception:
 audit_logger = logging.getLogger("monetizer.audit")
 audit_logger.setLevel(logging.INFO)
 os.makedirs("logs", exist_ok=True)
-ah = logging.FileHandler("logs/monetizer_audit.log")
+    from logging.handlers import TimedRotatingFileHandler
+    ah = TimedRotatingFileHandler("logs/monetizer_audit.log", when="D", interval=1, backupCount=7)
 ah.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
 audit_logger.addHandler(ah)
 

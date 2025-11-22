@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Sentinel Logs</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <h1>Audit logs</h1>
+  <form id="logForm">
+    <label for="logname">Log file:</label>
+    <input id="logname" value="public_interface_audit.log" />
+    <button id="fetch">Fetch</button>
+  </form>
+  <pre id="logContent">Loading...</pre>
+
+  <script>
+  document.getElementById('fetch').addEventListener('click', async (e) =>{
+    e.preventDefault();
+    const logname = document.getElementById('logname').value;
+    const res = await fetch(`/api/audit/${logname}`, {
+      headers: { 'X-Admin-Key': prompt('Admin key') }
+    });
+    const data = await res.json();
+    document.getElementById('logContent').textContent = data.lines.join('');
+  });
+  </script>
+</body>
+</html>

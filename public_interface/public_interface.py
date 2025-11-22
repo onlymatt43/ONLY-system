@@ -60,18 +60,29 @@ if not BUNNY_SECURITY_KEY:
 app = FastAPI(title="ONLY - Public Interface", version="1.0.0")
 
 # Rate limiting (slowapi) - limits per IP
-try:
-    limiter = Limiter(key_func=get_remote_address)
-    app.state.limiter = limiter
-    app.add_middleware(SlowAPIMiddleware)
-
-    # Logger for embed and mint access audits
-    logger = logging.getLogger("public_interface.audit")
-    logger.setLevel(logging.INFO)
-    os.makedirs("logs", exist_ok=True)
-    log_handler = logging.FileHandler("logs/public_interface_audit.log")
-    log_handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+# We always create an audit logger so sentinel and tests can find logs
+logger = logging.getLogger("public_interface.audit")
+logger.setLevel(logging.INFO)
+os.makedirs("logs", exist_ok=True)
+# Rotate daily, keep 7 days
+from logging.handlers import TimedRotatingFileHandler
+log_handler = TimedRotatingFileHandler("logs/public_interface_audit.log", when="D", interval=1, backupCount=7)
+log_handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+if not logger.handlers:
     logger.addHandler(log_handler)
+
+try:
+    # If a Redis storage URL is provided, use it for distributed limiting
+    storage_url = os.environ.get("SLOWAPI_REDIS_URL")
+    if storage_url:
+        limiter = Limiter(key_func=get_remote_address, storage_uri=storage_url)
+    else:
+        limiter = Limiter(key_func=get_remote_address)
+    app.state.limiter = limiter
+    if SlowAPIMiddleware:
+        app.add_middleware(SlowAPIMiddleware)
+
+    # If slowapi is available, attach limiter middleware
 except Exception:
     # slowapi may not be available in some environments; fallback to no limiter
     limiter = None
@@ -330,13 +341,13 @@ async def watch(request: Request, video_id: str, access_token: str = Cookie(None
     })
 
 
-@app.get("/api/embed/{video_id}")
 def _rate_limited_embed_decorator(func):
     # Apply limiter if available
     if limiter:
         return limiter.limit("20/minute")(func)
     return func
 
+@app.get("/api/embed/{video_id}")
 @_rate_limited_embed_decorator
 async def api_embed(request: Request, video_id: int, access_token: str = Cookie(None)):
     """Return signed embed URL for a video if the caller has access.
@@ -345,10 +356,16 @@ async def api_embed(request: Request, video_id: int, access_token: str = Cookie(
     url after verifying the user's access (via Monetizer), or immediately
     for public videos.
     """
-    # Verify token (optional)
+    # Verify token (optional) — support cookie or Authorization header as a fallback
     token_data = None
     if access_token:
         token_data = verify_token(access_token)
+    else:
+        # Accept Bearer token in Authorization header (helpful for API clients)
+        auth = request.headers.get('Authorization')
+        if auth and auth.lower().startswith('bearer '):
+            bearer = auth.split(None, 1)[1]
+            token_data = verify_token(bearer)
 
     # Fetch video metadata from Curator
     resp = requests.get(f"{CURATOR_URL}/videos/{video_id}", timeout=10)
@@ -405,6 +422,8 @@ async def login(request: Request):
     if not token:
         raise HTTPException(status_code=400, detail="Token required")
     
+    # Log token type (short code vs long token) for debugging
+    print(f"🔐 Login token received (len={len(token)}, sample={token[:8]})")
     token_data = verify_token(token)
     if not token_data:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
@@ -463,12 +482,12 @@ async def get_tokens():
         print(f"❌ Error fetching tokens: {e}")
         return {"tokens": [], "error": str(e)}
 
-@app.post("/api/tokens/mint")
 def _rate_limited_mint_decorator(func):
     if limiter:
         return limiter.limit("10/minute")(func)
     return func
 
+@app.post("/api/tokens/mint")
 @_rate_limited_mint_decorator
 async def mint_token(request: Request):
     """Create new token via Monetizer API"""

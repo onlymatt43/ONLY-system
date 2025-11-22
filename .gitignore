@@ -40,9 +40,8 @@ ENV/
 env/
 .venv
 
-# Environment variables
-.env
-*.env
+# Environment variables - ignore all .env variants but keep example files tracked
+.env*
 !.env.example
 
 # IDE
