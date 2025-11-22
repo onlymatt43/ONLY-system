@@ -345,6 +345,18 @@ async def startup():
     init_db()
     print(f"[Curator Bot] Started on port {PORT}")
 
+    # Optional auto-sync on startup. Set CURATOR_AUTO_SYNC_ON_STARTUP=true in prod to
+    # run a one-time import from Bunny Stream when the service boots.
+    try:
+        import asyncio
+        if os.environ.get('CURATOR_AUTO_SYNC_ON_STARTUP', '').lower() in ('1', 'true', 'yes'):
+            print("[Curator Bot] CURATOR_AUTO_SYNC_ON_STARTUP enabled — launching initial sync...")
+            # Run in background so startup does not block
+            asyncio.create_task(sync_bunny_videos(None))
+    except Exception:
+        # Non-fatal — if the sync fails we log and continue
+        print("[Curator Bot] Failed to start auto-sync (continuing)")
+
 
 @app.get("/")
 async def home():
